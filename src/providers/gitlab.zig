@@ -149,9 +149,66 @@ fn issueView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8,
     };
 }
 
+// ── Merge Requests ─────────────────────────────────────────────────────────
+
+fn prList(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) ![]types.PullRequestInfo {
+    const encoded = try encodeProjectPath(allocator, owner, repo);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/projects/{s}/merge_requests?state=opened&per_page=30", .{encoded});
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const arr = parsed.value.array.items;
+    var list = try std.ArrayList(types.PullRequestInfo).initCapacity(allocator, arr.len);
+
+    for (arr) |item| {
+        const obj = item.object;
+        try list.append(allocator, types.PullRequestInfo{
+            .number = getU64(obj, "iid"),
+            .title = getString(obj, "title"),
+            .state = if (std.mem.eql(u8, getString(obj, "state"), "opened")) "open" else "closed",
+            .author = if (obj.get("author")) |a| getString(a.object, "username") else "",
+            .draft = getBool(obj, "draft"),
+            .url = getString(obj, "web_url"),
+            .created_at = getString(obj, "created_at"),
+            .source_branch = getString(obj, "source_branch"),
+            .target_branch = getString(obj, "target_branch"),
+        });
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
+fn prView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !types.PullRequestInfo {
+    const encoded = try encodeProjectPath(allocator, owner, repo);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/projects/{s}/merge_requests/{d}", .{ encoded, number });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.PullRequestInfo{
+        .number = getU64(obj, "iid"),
+        .title = getString(obj, "title"),
+        .state = if (std.mem.eql(u8, getString(obj, "state"), "opened")) "open" else "closed",
+        .author = if (obj.get("author")) |a| getString(a.object, "username") else "",
+        .draft = getBool(obj, "draft"),
+        .url = getString(obj, "web_url"),
+        .created_at = getString(obj, "created_at"),
+        .source_branch = getString(obj, "source_branch"),
+        .target_branch = getString(obj, "target_branch"),
+    };
+}
+
 pub const repo_vtable: types.RepoVtable = .{ .view = repoView };
 pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
-pub const pr_vtable: ?types.PRVtable = null;
+pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
 
 test {
     _ = repo_vtable;

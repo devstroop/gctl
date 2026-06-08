@@ -8,6 +8,10 @@ fn getU64(obj: std.json.ObjectMap, key: []const u8) u64 {
     return if (obj.get(key)) |v| @intCast(v.integer) else 0;
 }
 
+fn getBool(obj: std.json.ObjectMap, key: []const u8) bool {
+    return if (obj.get(key)) |v| v.bool else false;
+}
+
 test "gitlab: parse repo response" {
     const json =
         \\{
@@ -144,6 +148,114 @@ test "gitlab: parse single issue view" {
     try std.testing.expectEqualStrings("closed", getString(obj, "state"));
     try std.testing.expectEqualStrings("eve", getString(obj.get("author").?.object, "username"));
     try std.testing.expectEqualStrings("Found in production. Steps to reproduce...", getString(obj, "description"));
+}
+
+test "gitlab: parse merge request list response" {
+    const json =
+        \\[
+        \\  {
+        \\    "iid": 10,
+        \\    "title": "Add new feature",
+        \\    "state": "opened",
+        \\    "author": {"username": "alice"},
+        \\    "draft": false,
+        \\    "web_url": "https://gitlab.com/user/gctl/-/merge_requests/10",
+        \\    "created_at": "2026-04-01T08:00:00Z",
+        \\    "source_branch": "feature/new-stuff",
+        \\    "target_branch": "main"
+        \\  },
+        \\  {
+        \\    "iid": 11,
+        \\    "title": "WIP: refactoring",
+        \\    "state": "opened",
+        \\    "author": {"username": "bob"},
+        \\    "draft": true,
+        \\    "web_url": "https://gitlab.com/user/gctl/-/merge_requests/11",
+        \\    "created_at": "2026-04-05T12:00:00Z",
+        \\    "source_branch": "refactor/auth",
+        \\    "target_branch": "develop"
+        \\  }
+        \\]
+    ;
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json, .{ .allocate = .alloc_always });
+    defer parsed.deinit();
+
+    const arr = parsed.value.array.items;
+    try std.testing.expectEqual(@as(usize, 2), arr.len);
+
+    // First MR (not draft)
+    {
+        const obj = arr[0].object;
+        try std.testing.expectEqual(@as(u64, 10), getU64(obj, "iid"));
+        try std.testing.expectEqualStrings("Add new feature", getString(obj, "title"));
+        try std.testing.expectEqualStrings("opened", getString(obj, "state"));
+        try std.testing.expectEqualStrings("alice", getString(obj.get("author").?.object, "username"));
+        try std.testing.expectEqual(false, getBool(obj, "draft"));
+        try std.testing.expectEqualStrings("feature/new-stuff", getString(obj, "source_branch"));
+        try std.testing.expectEqualStrings("main", getString(obj, "target_branch"));
+    }
+
+    // Second MR (draft)
+    {
+        const obj = arr[1].object;
+        try std.testing.expectEqual(@as(u64, 11), getU64(obj, "iid"));
+        try std.testing.expectEqualStrings("WIP: refactoring", getString(obj, "title"));
+        try std.testing.expectEqual(true, getBool(obj, "draft"));
+        try std.testing.expectEqualStrings("refactor/auth", getString(obj, "source_branch"));
+        try std.testing.expectEqualStrings("develop", getString(obj, "target_branch"));
+    }
+}
+
+test "gitlab: parse merged merge request" {
+    const json =
+        \\{
+        \\  "iid": 12,
+        \\  "title": "Hotfix",
+        \\  "state": "merged",
+        \\  "author": {"username": "carol"},
+        \\  "draft": false,
+        \\  "web_url": "https://gitlab.com/user/gctl/-/merge_requests/12",
+        \\  "created_at": "2026-04-10T09:00:00Z",
+        \\  "source_branch": "hotfix/urgent",
+        \\  "target_branch": "main"
+        \\}
+    ;
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json, .{ .allocate = .alloc_always });
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    try std.testing.expectEqualStrings("merged", getString(obj, "state"));
+    try std.testing.expectEqualStrings("carol", getString(obj.get("author").?.object, "username"));
+    // "merged" state should be normalized to "closed" by the provider
+    try std.testing.expectEqualStrings("hotfix/urgent", getString(obj, "source_branch"));
+}
+
+test "gitlab: parse single merge request view" {
+    const json =
+        \\{
+        \\  "iid": 20,
+        \\  "title": "Detailed feature PR",
+        \\  "state": "opened",
+        \\  "author": {"username": "dave"},
+        \\  "draft": false,
+        \\  "web_url": "https://gitlab.com/user/gctl/-/merge_requests/20",
+        \\  "created_at": "2026-06-01T10:00:00Z",
+        \\  "source_branch": "feature/details",
+        \\  "target_branch": "main"
+        \\}
+    ;
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, json, .{ .allocate = .alloc_always });
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    try std.testing.expectEqualStrings("Detailed feature PR", getString(obj, "title"));
+    try std.testing.expectEqualStrings("opened", getString(obj, "state"));
+    try std.testing.expectEqualStrings("dave", getString(obj.get("author").?.object, "username"));
+    try std.testing.expectEqualStrings("feature/details", getString(obj, "source_branch"));
+    try std.testing.expectEqualStrings("main", getString(obj, "target_branch"));
 }
 
 test "gitlab: parse repo response with internal visibility" {
