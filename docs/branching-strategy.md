@@ -32,56 +32,62 @@ test: add remote URL parsing tests
 
 ### Phase 0 — Foundation (v0.1)
 
-| Branch | Description | Dependencies |
-|--------|-------------|-------------|
-| `main` | Initial commit: all current source, tests, docs, build system | — |
-| `feature/tests-context` | Fill in `context_test.zig` — URL parsing for SSH/HTTPS/self-hosted | `main` |
-| `feature/tests-cli` | Fill in `cli_test.zig` — arg parsing for all command variants | `main` |
-| `feature/tests-github` | Fill in `github_test.zig` — mock JSON response parsing | `main` |
-| `feature/config-read` | Implement `config.schema.read()` | `main` |
-| `feature/config-write` | Implement `config.schema.write()` | `feature/config-read` |
+| Branch | Description | Status |
+|--------|-------------|--------|
+| `main` | Initial commit: all current source, tests, docs, build system | ✅ Done |
+| `feature/tests-context` | Fill in `context_test.zig` — URL parsing for SSH/HTTPS/self-hosted | ✅ Done |
+| `feature/tests-cli` | Fill in `cli_test.zig` — arg parsing for all command variants | ✅ Done |
+| `feature/tests-github` | Fill in `github_test.zig` — mock JSON response parsing | ✅ Done |
+| `feature/config-read` | Implement `config.schema.read()` | ✅ Done |
+| `feature/config-write` | Implement `config.schema.write()` | ✅ Done |
 
 ### Phase 1 — GitLab (v0.2)
 
 | Branch | Description | Dependencies |
 |--------|-------------|-------------|
-| `feature/gitlab-repos` | GitLab `repo_view` vtable implementation | `main` |
-| `feature/gitlab-issues` | GitLab issue list/view via API v4 | `feature/gitlab-repos` |
-| `feature/gitlab-prs` | GitLab PR list/view mapped to merge requests | `feature/gitlab-issues` |
+| `feature/gitlab-repos` | GitLab `repo_view` via `/projects/{id}`. URL encoding. Register in provider registry | `main` |
+| `feature/gitlab-issues` | GitLab issue list/view via `/projects/{id}/issues` | `feature/gitlab-repos` |
+| `feature/gitlab-prs` | GitLab merge request list/view via `/projects/{id}/merge_requests` | `feature/gitlab-issues` |
 
-### Phase 2 — Create Operations (v0.3)
-
-| Branch | Description | Dependencies |
-|--------|-------------|-------------|
-| `feature/issue-create-close` | `issue create` / `issue close` commands | `main` |
-| `feature/pr-create-merge` | `pr create` / `pr merge` commands | `feature/issue-create-close` |
-
-### Phase 3 — Releases + Gitea (v0.4)
+### Phase 2 — Extended Ops (v0.3)
 
 | Branch | Description | Dependencies |
 |--------|-------------|-------------|
-| `feature/release-list-view` | `release list` / `release view` | `main` |
-| `feature/release-create` | `release create` | `feature/release-list-view` |
-| `feature/gitea-provider` | Full Gitea/Forgejo implementation | `feature/release-create` |
+| `feature/repo-create-delete-archive` | Extend `RepoVtable` with `create()`, `delete()`, `archive()` | `main` |
+| `feature/label-set-all` | Add `LabelVtable` with `set_all()`. CLI: `label set_all <number> <l1,l2,...>` | `feature/repo-create-delete-archive` |
+| `feature/multi-context` | `resolve()` → `[]ResolvedContext`. Parse all remotes. `gctl context --all`. Thread context slice through dispatch | `feature/label-set-all` |
+| `feature/issue-create-close` | `issue create` / `issue close`. Uncomment in Command enum, add create/close to IssueVtable | `feature/multi-context` |
+| `feature/pr-create-merge` | `pr create` / `pr merge`. Uncomment in Command enum, add create/merge to PRVtable | `feature/issue-create-close` |
 
-### Phase 4 — CI/CD Runs (v0.5)
-
-| Branch | Description | Dependencies |
-|--------|-------------|-------------|
-| `feature/run-list-view` | `run list` / `run view` | `main` |
-| `feature/run-rerun` | `run rerun` | `feature/run-list-view` |
-
-### Phase 5 — Auth & Polish (v1.0)
+### Phase 3 — Mirror (v0.4)
 
 | Branch | Description | Dependencies |
 |--------|-------------|-------------|
-| `feature/keychain-macos` | macOS `security` CLI integration | `main` |
+| `feature/mirror-engine` | Core sync: enumerate issues/PRs from source, upsert to target. Mapping layer between provider types | `feature/pr-create-merge` |
+| `feature/mirror-cli` | CLI: `gctl mirror list`, `gctl mirror setup`, `gctl mirror run`. Config stored in `~/.gctl/mirrors.json` | `feature/mirror-engine` |
+| `feature/mirror-git-sync` | Git operation layer: `git push --mirror` via CLI, divergent history handling | `feature/mirror-cli` |
+
+### Phase 4 — Auth (v1.0)
+
+| Branch | Description | Dependencies |
+|--------|-------------|-------------|
+| `feature/keychain-macos` | macOS `security` CLI integration for token storage | `main` |
 | `feature/keychain-linux` | Linux `secret-tool` integration | `feature/keychain-macos` |
-| `feature/oauth-device-flow` | GitHub OAuth device flow | `main` |
-| `feature/auth-commands` | `auth login/logout/list/status` CLI | `feature/keychain-linux`, `feature/oauth-device-flow` |
-| `feature/doctor-command` | `gctl doctor` diagnostics | `main` |
-| `feature/shell-completions` | bash/zsh/fish completion generation | `main` |
-| `feature/json-output` | `--json` flag for all commands | `main` |
+| `feature/oauth-device-flow` | GitHub OAuth device flow (device_code, polling, token store) | `main` |
+| `feature/auth-commands` | `auth login/logout/list/status` CLI commands | `feature/keychain-linux`, `feature/oauth-device-flow` |
+
+### Scrapped (not planned)
+
+These were proposed but removed as premature — no user workflow proves them yet:
+
+| Scrapped | Reason |
+|----------|--------|
+| `feature/release-*` | Release list/view/create — no user demand |
+| `feature/run-*` | CI/CD run list/view/rerun — no user demand |
+| `feature/doctor-command` | Diagnostics — premature polish |
+| `feature/shell-completions` | Tab completion — premature polish |
+| `feature/json-output` | `--json` flag — premature formatting concern |
+| `feature/gitea-provider` | Gitea/Forgejo — no user demand (can be revived) |
 
 ## Workflow
 
