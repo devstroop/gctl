@@ -10,13 +10,33 @@ Capability      GitHub              GitLab              Gitea/Forgejo
 repos           RepoVtable          RepoVtable          RepoVtable
 issues          IssueVtable         IssueVtable         IssueVtable
 prs             PRVtable            PRVtable (MRs)      PRVtable
-releases        ReleaseVtable       ReleaseVtable       ReleaseVtable
-pipelines       PipelineVtable      PipelineVtable      null
+labels          LabelVtable         LabelVtable         LabelVtable
 ```
 
 A provider without a capability sets its vtable to `null`. The command dispatch checks before calling and returns a clear "not supported" message. No lowest-common-denominator trap.
 
 The `custom` provider ships with all capabilities set to `null` — users provide their own API via `--provider-url`. This enables working with any Git forge that has a REST API.
+
+**Vtable philosophy**: Start with 3 vtables (repos, issues, prs). Add labels in v0.3. Do NOT add releases, pipelines, or other vtables until a real user workflow demands them. Use `gctl api` as the escape hatch for unsupported operations.
+
+### RepoVtable
+
+```zig
+pub const RepoVtable = struct {
+    view:    *const fn (allocator, token, owner, repo) anyerror!RepoInfo,
+    create:  *const fn (allocator, token, name, opts) anyerror!RepoInfo,
+    delete:  *const fn (allocator, token, owner, repo) anyerror!void,
+    archive: *const fn (allocator, token, owner, repo, archived: bool) anyerror!void,
+};
+```
+
+### LabelVtable
+
+```zig
+pub const LabelVtable = struct {
+    set_all: *const fn (allocator, token, owner, repo, issue_number, labels: []const []const u8) anyerror!void,
+};
+```
 
 ---
 
@@ -28,6 +48,18 @@ For every command, the context engine resolves:
 2. **Git remote detection**: Parse `git remote -v`, match URL patterns to known providers
 3. **Config fallback**: `defaults.provider` from `~/.gctl/config.json`
 4. **Error**: "No provider detected. Run `gctl context` to debug."
+
+### Multi-Context Resolution (v0.3+)
+
+All git remotes are parsed, not just the first. The resolver returns a slice of contexts:
+
+```zig
+pub fn resolve(allocator, provider_override, provider_url) ![]ResolvedContext
+```
+
+- Single-repo commands (issue list, pr view) implicitly use `contexts[0]` (the first fetch remote)
+- `gctl context --all` displays every resolved remote
+- Cross-provider commands (mirror, move) accept a source/target context pair
 
 Custom provider detection:
 - If `--provider custom` is passed, the override takes priority regardless of what the remote URL matches
