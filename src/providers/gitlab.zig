@@ -1,10 +1,83 @@
 const std = @import("std");
 const types = @import("types.zig");
+const http = @import("http");
 
-// GitLab provider — v0.2
-// All vtables are null for now; implemented when we add GitLab support.
+const BASE_URL = "https://gitlab.com/api/v4";
 
-pub const repo_vtable: ?types.RepoVtable = null;
+// ── JSON helpers ───────────────────────────────────────────────────────────
+
+fn getString(obj: std.json.ObjectMap, key: []const u8) []const u8 {
+    return if (obj.get(key)) |v| v.string else "";
+}
+
+fn getU64(obj: std.json.ObjectMap, key: []const u8) u64 {
+    return if (obj.get(key)) |v| @intCast(v.integer) else 0;
+}
+
+fn getBool(obj: std.json.ObjectMap, key: []const u8) bool {
+    return if (obj.get(key)) |v| v.bool else false;
+}
+
+fn getStringArray(allocator: std.mem.Allocator, obj: std.json.ObjectMap, key: []const u8) ![]const []const u8 {
+    const arr = obj.get(key) orelse return &[_][]const u8{};
+    if (arr.array.items.len == 0) return &[_][]const u8{};
+
+    var list = std.ArrayList([]const u8).init(allocator);
+    for (arr.array.items) |item| {
+        try list.append(allocator, item.string);
+    }
+    return list.toOwnedSlice(allocator);
+}
+
+// ── API helpers ────────────────────────────────────────────────────────────
+
+/// GitLab uses URL-encoded project paths: "owner/repo" → "owner%2Frepo"
+fn encodeProjectPath(allocator: std.mem.Allocator, owner: []const u8, repo: []const u8) ![]const u8 {
+    return try std.fmt.allocPrint(allocator, "{s}%2F{s}", .{ owner, repo });
+}
+
+fn apiGet(allocator: std.mem.Allocator, token: []const u8, path: []const u8) !std.json.Parsed(std.json.Value) {
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.get(allocator, url, token);
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitLab API returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+
+    return std.json.parseFromSlice(std.json.Value, allocator, resp.body, .{ .allocate = .alloc_always });
+}
+
+// ── Repository ─────────────────────────────────────────────────────────────
+
+fn repoView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) !types.RepoInfo {
+    const encoded = try encodeProjectPath(allocator, owner, repo);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/projects/{s}", .{encoded});
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.RepoInfo{
+        .name = getString(obj, "name"),
+        .full_name = getString(obj, "name_with_namespace"),
+        .description = getString(obj, "description"),
+        .url = getString(obj, "web_url"),
+        .default_branch = getString(obj, "default_branch"),
+        .stars = getU64(obj, "star_count"),
+        .forks = getU64(obj, "forks_count"),
+        .open_issues = getU64(obj, "open_issues_count"),
+        .visibility = getString(obj, "visibility"),
+    };
+}
+
+pub const repo_vtable: types.RepoVtable = .{ .view = repoView };
 pub const issue_vtable: ?types.IssueVtable = null;
 pub const pr_vtable: ?types.PRVtable = null;
 
