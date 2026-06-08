@@ -5,12 +5,12 @@
 Instead of a monolithic `Provider` interface, each provider exposes optional capability vtables:
 
 ```
-Capability      GitHub              GitLab              Gitea/Forgejo
-─────────       ──────              ──────              ─────────────
-repos           RepoVtable          RepoVtable          RepoVtable
-issues          IssueVtable         IssueVtable         IssueVtable
-prs             PRVtable            PRVtable (MRs)      PRVtable
-labels          LabelVtable         LabelVtable         LabelVtable
+Capability      GitHub              GitLab
+─────────       ──────              ──────
+repos           RepoVtable          RepoVtable
+issues          IssueVtable         IssueVtable
+prs             PRVtable            PRVtable (MRs)
+labels          LabelVtable         LabelVtable
 ```
 
 A provider without a capability sets its vtable to `null`. The command dispatch checks before calling and returns a clear "not supported" message. No lowest-common-denominator trap.
@@ -24,9 +24,31 @@ The `custom` provider ships with all capabilities set to `null` — users provid
 ```zig
 pub const RepoVtable = struct {
     view:    *const fn (allocator, token, owner, repo) anyerror!RepoInfo,
-    create:  *const fn (allocator, token, name, opts) anyerror!RepoInfo,
+    create:  *const fn (allocator, token, owner, params) anyerror!RepoInfo,
     delete:  *const fn (allocator, token, owner, repo) anyerror!void,
-    archive: *const fn (allocator, token, owner, repo, archived: bool) anyerror!void,
+    archive: *const fn (allocator, token, owner, repo, archived: bool) anyerror!RepoInfo,
+};
+```
+
+### IssueVtable
+
+```zig
+pub const IssueVtable = struct {
+    list:   *const fn (allocator, token, owner, repo) anyerror![]IssueInfo,
+    view:   *const fn (allocator, token, owner, repo, number: u64) anyerror!IssueInfo,
+    create: *const fn (allocator, token, owner, repo, params: IssueCreateParams) anyerror!IssueInfo,
+    close:  *const fn (allocator, token, owner, repo, number: u64) anyerror!IssueInfo,
+};
+```
+
+### PRVtable
+
+```zig
+pub const PRVtable = struct {
+    list:   *const fn (allocator, token, owner, repo) anyerror![]PullRequestInfo,
+    view:   *const fn (allocator, token, owner, repo, number: u64) anyerror!PullRequestInfo,
+    create: *const fn (allocator, token, owner, repo, params: PRCreateParams) anyerror!PullRequestInfo,
+    merge:  *const fn (allocator, token, owner, repo, number: u64) anyerror!void,
 };
 ```
 
@@ -34,7 +56,7 @@ pub const RepoVtable = struct {
 
 ```zig
 pub const LabelVtable = struct {
-    set_all: *const fn (allocator, token, owner, repo, issue_number, labels: []const []const u8) anyerror!void,
+    set_all: *const fn (allocator, token, owner, repo, params: LabelParams) anyerror!void,
 };
 ```
 
@@ -63,7 +85,7 @@ pub fn resolve(allocator, provider_override, provider_url) ![]ResolvedContext
 
 Custom provider detection:
 - If `--provider custom` is passed, the override takes priority regardless of what the remote URL matches
-- If remote exists but doesn't match a known provider pattern (github/gitlab/gitea), it auto-detects as `custom`
+- If remote exists but doesn't match a known provider pattern (github/gitlab), it auto-detects as `custom`
 - `--provider-url` passes through to `providers.execute()` for API calls
 
 ---
@@ -72,7 +94,7 @@ Custom provider detection:
 
 Tokens are resolved in priority order:
 
-1. **Environment variables**: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `GITEA_TOKEN`, `TOKEN` (generic fallback)
+1. **Environment variables**: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `TOKEN` (generic fallback)
 2. **OS keychain**: macOS Keychain, Linux Secret Service (v1.0+)
 3. **Encrypted config file**: AES-encrypted fallback (v1.0+)
 
@@ -82,7 +104,6 @@ v0.1–v0.5 use env vars exclusively. Token env var mapping:
 |----------|---------|
 | `github` | `GITHUB_TOKEN` |
 | `gitlab` | `GITLAB_TOKEN` |
-| `gitea` | `GITEA_TOKEN` |
 | `custom` | `TOKEN` (generic fallback) |
 
 The `upperProvider` function normalizes provider names for env lookup (e.g., `github` → `GITHUB`, `custom` → `TOKEN`).
@@ -92,51 +113,51 @@ The `upperProvider` function normalizes provider names for env lookup (e.g., `gi
 ## Directory Structure
 
 ```
-/Volumes/EXT/gctl/
+gctl/
 ├── build.zig                 # Build system: modules, targets, tests
-├── build.zig.zon             # Package manifest: name, version, deps (none)
+├── build.zig.zon             # Package manifest (no deps)
 ├── README.md                 # User-facing overview
+├── CONTRIBUTING.md           # Build, test, branching, coding guide
 ├── docs/
-│   ├── specs/                # Specification documents
-│   │   ├── index.md
-│   │   ├── architecture.md
-│   │   ├── commands.md
-│   │   ├── providers.md
-│   │   ├── config.md
-│   │   ├── error-handling.md
-│   │   └── design-decisions.md
-│   ├── development.md        # Build, test, run guide
-│   └── contributing.md       # Contribution guidelines
+│   └── specs/                # Specification documents
+│       ├── index.md
+│       ├── architecture.md
+│       ├── commands.md
+│       ├── providers.md
+│       ├── config.md
+│       ├── error-handling.md
+│       └── design-decisions.md
 ├── src/
 │   ├── main.zig              # Entry point, arg dispatch, error handling
 │   ├── cli/
 │   │   ├── mod.zig            # CLI module root
 │   │   ├── args.zig           # Arg parsing: flags anywhere, multi-word commands
-│   │   └── output.zig         # Table rendering, --json flag, ANSI color
+│   │   └── output.zig         # Table rendering, key-value output, JSON-ready
 │   ├── context/
 │   │   ├── mod.zig            # Context resolution engine
-│   │   └── remote.zig         # Parse `git remote -v`, map URL→provider+owner+repo
+│   │   └── remote.zig         # Parse git remote -v, map URL→provider+owner+repo
 │   ├── providers/
 │   │   ├── mod.zig            # Provider registry (comptime map)
 │   │   ├── types.zig          # Capability enum, vtable types, shared response types
 │   │   ├── github.zig         # GitHub REST v3
 │   │   ├── gitlab.zig         # GitLab API v4
-│   │   └── gitea.zig          # Gitea/Forgejo API v1
+│   │   └── gitea.zig          # Stub — planned if users need
 │   ├── config/
 │   │   ├── mod.zig            # Config read/write, account management
 │   │   └── schema.zig         # Config types (accounts array, defaults)
 │   ├── auth/
 │   │   ├── mod.zig            # Token resolution: env vars → config → keychain
 │   │   ├── env.zig            # Provider token env var support
-│   │   ├── keychain.zig       # macOS `security` / Linux `secret-tool`
-│   │   └── oauth.zig          # GitHub device flow (v1.0+)
+│   │   ├── keychain.zig       # Stub — macOS security / Linux secret-tool (v1.0+)
+│   │   └── oauth.zig          # Stub — GitHub device flow (v1.0+)
 │   └── http/
 │       ├── mod.zig            # HTTP module root
-│       └── client.zig         # std.http.Client wrapper: auth, retry, rate-limit
+│       └── client.zig         # std.http.Client wrapper: GET, POST, PATCH, DELETE
 └── tests/
     ├── context_test.zig       # Git remote parsing, provider resolution
     ├── cli_test.zig           # Arg parsing for each command variant
-    └── github_test.zig        # API response parsing (mock data)
+    ├── github_test.zig        # API response parsing (mock data)
+    └── gitlab_test.zig        # GitLab API response parsing (mock data)
 ```
 
 ### Module Dependency Graph

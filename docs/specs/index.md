@@ -1,11 +1,11 @@
 # gctl — Specification Index
 
-> One CLI for every Git forge.
+> Cross-forge Git operations — one CLI.
 > Zig 0.15+ · stdlib only · single static binary
 
 ## Overview
 
-`gctl` is a provider-agnostic CLI for Git hosting platforms. Unlike `gh` (GitHub) or `glab` (GitLab), it unifies a small, consistent set of workflows across GitHub, GitLab, Gitea, and Forgejo — plus any custom provider via `--provider-url`.
+`gctl` is a provider-agnostic CLI for Git hosting platforms. Unlike `gh` (GitHub) or `glab` (GitLab), it unifies a small, consistent set of workflows across GitHub, GitLab, and custom providers.
 
 The core strength is **context detection**: `cd anywhere && gctl status` instantly knows the provider, account, owner, and repo. No flags, no config, no ceremony.
 

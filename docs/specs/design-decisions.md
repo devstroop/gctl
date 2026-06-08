@@ -22,8 +22,8 @@
 
 | Version | Scope | Status |
 |---------|-------|--------|
-| v0.1 | GitHub, context, env tokens, custom provider, tests, config | ✅ Current |
-| v0.2 | GitLab support (repos, issues, merge requests) | In progress |
-| v0.3 | Extended repo ops (create/delete/archive), labels (set_all), multi-context, issue/pr create/close/merge | Planned |
-| v0.4 | `gctl mirror` (continuous sync between repos/providers) | Planned |
-| v1.0 | Persistent auth (keychain + OAuth), auth commands | Planned |
+| v0.1 | GitHub, context, env tokens, custom provider, tests, config | ✅ Done |
+| v0.2 | GitLab support (repos, issues, merge requests) | ✅ Done |
+| v0.3 | Repo create/delete/archive, label set_all, issue create/close, pr create/merge, multi-context | 🔄 In progress |
+| v0.4 | `gctl mirror` (continuous sync between repos/providers) | ⏳ Planned |
+| v1.0 | Persistent auth (keychain + OAuth), auth commands | ⏳ Planned |

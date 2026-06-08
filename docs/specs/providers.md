@@ -4,20 +4,20 @@
 
 Base URL: `https://api.github.com`
 
-| gctl command  | API endpoint                          |
-|---------------|---------------------------------------|
-| `issue list`  | `GET /repos/{o}/{r}/issues`           |
-| `issue view`  | `GET /repos/{o}/{r}/issues/{n}`       |
-| `issue create`| `POST /repos/{o}/{r}/issues`          |
-| `issue close` | `PATCH /repos/{o}/{r}/issues/{n}`     |
-| `pr list`     | `GET /repos/{o}/{r}/pulls`            |
-| `pr view`     | `GET /repos/{o}/{r}/pulls/{n}`        |
-| `pr create`   | `POST /repos/{o}/{r}/pulls`           |
-| `pr merge`    | `PUT /repos/{o}/{r}/pulls/{n}/merge`  |
-| `run list`    | `GET /repos/{o}/{r}/actions/runs`     |
-| `run view`    | `GET /repos/{o}/{r}/actions/runs/{id}`|
-| `run rerun`   | `POST /repos/{o}/{r}/actions/runs/{id}/rerun` |
-| `release list`| `GET /repos/{o}/{r}/releases`         |
+| gctl command        | API endpoint                                     |
+|---------------------|--------------------------------------------------|
+| `repo view`         | `GET /repos/{o}/{r}`                             |
+| `repo create`       | `POST /user/repos` or `POST /orgs/{o}/repos`     |
+| `repo delete`       | `DELETE /repos/{o}/{r}`                          |
+| `repo archive`      | `PATCH /repos/{o}/{r}` (`{"archived": true}`)    |
+| `label set_all`     | DELETE existing + POST each new `/repos/{o}/{r}/labels` |
+| `issue list`        | `GET /repos/{o}/{r}/issues`                      |
+| `issue view`        | `GET /repos/{o}/{r}/issues/{n}`                  |
+| `issue create`      | `POST /repos/{o}/{r}/issues`                     |
+| `issue close`       | `PATCH /repos/{o}/{r}/issues/{n}`                |
+| `pr list`           | `GET /repos/{o}/{r}/pulls`                       |
+| `pr view`           | `GET /repos/{o}/{r}/pulls/{n}`                   |
+| `api`               | Any method + path against `api.github.com`       |
 
 ---
 
@@ -27,23 +27,22 @@ Base URL: `https://gitlab.com/api/v4`
 
 `pr` commands map to GitLab Merge Requests under the hood. The CLI surface stays uniform.
 
-| gctl command  | GitLab API endpoint                        |
-|---------------|--------------------------------------------|
-| `issue list`  | `GET /projects/{id}/issues`                |
-| `pr list`     | `GET /projects/{id}/merge_requests`        |
-| `run list`    | `GET /projects/{id}/pipelines`             |
+| gctl command        | GitLab API endpoint                             |
+|---------------------|-------------------------------------------------|
+| `repo view`         | `GET /projects/{id}`                            |
+| `repo create`       | ❌ (NotSupported stub)                          |
+| `repo delete`       | ❌ (NotSupported stub)                          |
+| `repo archive`      | ❌ (NotSupported stub)                          |
+| `label set_all`     | ❌ (NotSupported stub)                          |
+| `issue list`        | `GET /projects/{id}/issues`                     |
+| `issue view`        | `GET /projects/{id}/issues/{n}`                 |
+| `issue create`      | ❌ (NotSupported stub)                          |
+| `issue close`       | ❌ (NotSupported stub)                          |
+| `pr list`           | `GET /projects/{id}/merge_requests`             |
+| `pr view`           | `GET /projects/{id}/merge_requests/{n}`         |
+| `api`               | Any method + path against `gitlab.com/api/v4`   |
 
----
-
-## Gitea / Forgejo
-
-Gitea and Forgejo share an identical REST API (`/api/v1`).
-
-| gctl command  | Gitea API endpoint                     |
-|---------------|----------------------------------------|
-| `issue list`  | `GET /repos/{o}/{r}/issues`            |
-| `pr list`     | `GET /repos/{o}/{r}/pulls`             |
-| `run list`    | Not supported (`pipelines = null`)     |
+`{id}` is the URL-encoded project path (e.g., `devstroop%2Fgctl`).
 
 ---
 
