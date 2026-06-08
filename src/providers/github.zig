@@ -46,6 +46,36 @@ fn apiGet(allocator: std.mem.Allocator, token: []const u8, path: []const u8) !st
     return std.json.parseFromSlice(std.json.Value, allocator, resp.body, .{ .allocate = .alloc_always });
 }
 
+fn apiPost(allocator: std.mem.Allocator, token: []const u8, path: []const u8, body: []const u8) !std.json.Parsed(std.json.Value) {
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.post(allocator, url, token, body);
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitHub API returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+
+    return std.json.parseFromSlice(std.json.Value, allocator, resp.body, .{ .allocate = .alloc_always });
+}
+
+fn apiPatch(allocator: std.mem.Allocator, token: []const u8, path: []const u8, body: []const u8) !std.json.Parsed(std.json.Value) {
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.patch(allocator, url, token, body);
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitHub API returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+
+    return std.json.parseFromSlice(std.json.Value, allocator, resp.body, .{ .allocate = .alloc_always });
+}
+
 // ── Repository ─────────────────────────────────────────────────────────────
 
 fn repoView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) !types.RepoInfo {
@@ -69,7 +99,79 @@ fn repoView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, 
     };
 }
 
-pub const repo_vtable: types.RepoVtable = .{ .view = repoView };
+fn repoCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, params: types.RepoCreateParams) !types.RepoInfo {
+    // For org repos: POST /orgs/{owner}/repos; for user repos: POST /user/repos
+    const path = if (std.mem.eql(u8, owner, "user") or owner.len == 0)
+        try std.fmt.allocPrint(allocator, "/user/repos", .{})
+    else
+        try std.fmt.allocPrint(allocator, "/orgs/{s}/repos", .{owner});
+    defer allocator.free(path);
+
+    const body = try std.fmt.allocPrint(allocator, "{{\"name\":\"{s}\",\"description\":{s},\"private\":{s}}}", .{
+        params.name,
+        if (params.description) |d| try std.fmt.allocPrint(allocator, "\"{s}\"", .{d}) else "null",
+        if (params.private) "true" else "false",
+    });
+    defer allocator.free(body);
+
+    var parsed = try apiPost(allocator, token, path, body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.RepoInfo{
+        .name = getString(obj, "name"),
+        .full_name = getString(obj, "full_name"),
+        .description = getString(obj, "description"),
+        .url = getString(obj, "html_url"),
+        .default_branch = getString(obj, "default_branch"),
+        .stars = getU64(obj, "stargazers_count"),
+        .forks = getU64(obj, "forks_count"),
+        .open_issues = getU64(obj, "open_issues_count"),
+        .visibility = getString(obj, "visibility"),
+    };
+}
+
+fn repoDelete(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) !void {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}", .{ owner, repo });
+    defer allocator.free(path);
+
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.delete(allocator, url, token);
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitHub API returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+}
+
+fn repoArchive(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, archived: bool) !types.RepoInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}", .{ owner, repo });
+    defer allocator.free(path);
+
+    const body = try std.fmt.allocPrint(allocator, "{{\"archived\":{s}}}", .{if (archived) "true" else "false"});
+    defer allocator.free(body);
+
+    var parsed = try apiPatch(allocator, token, path, body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.RepoInfo{
+        .name = getString(obj, "name"),
+        .full_name = getString(obj, "full_name"),
+        .description = getString(obj, "description"),
+        .url = getString(obj, "html_url"),
+        .default_branch = getString(obj, "default_branch"),
+        .stars = getU64(obj, "stargazers_count"),
+        .forks = getU64(obj, "forks_count"),
+        .open_issues = getU64(obj, "open_issues_count"),
+        .visibility = getString(obj, "visibility"),
+    };
+}
+
+pub const repo_vtable: types.RepoVtable = .{ .view = repoView, .create = repoCreate, .delete = repoDelete, .archive = repoArchive };
 
 // ── Issues ─────────────────────────────────────────────────────────────────
 

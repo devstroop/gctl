@@ -73,8 +73,14 @@ pub fn patch(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, 
     return request(allocator, .PATCH, url, token, body);
 }
 
+/// Make an HTTP DELETE request.
+pub fn delete(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8) !Response {
+    return request(allocator, .DELETE, url, token, null);
+}
+
 test {
     _ = get;
     _ = post;
     _ = patch;
+    _ = delete;
 }

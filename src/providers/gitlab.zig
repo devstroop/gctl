@@ -206,7 +206,32 @@ fn prView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, re
     };
 }
 
-pub const repo_vtable: types.RepoVtable = .{ .view = repoView };
+fn repoCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, params: types.RepoCreateParams) !types.RepoInfo {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = params;
+    return error.NotSupported;
+}
+
+fn repoDelete(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) !void {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    return error.NotSupported;
+}
+
+fn repoArchive(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, archived: bool) !types.RepoInfo {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = archived;
+    return error.NotSupported;
+}
+
+pub const repo_vtable: types.RepoVtable = .{ .view = repoView, .create = repoCreate, .delete = repoDelete, .archive = repoArchive };
 pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
 pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
 

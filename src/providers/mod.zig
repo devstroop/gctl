@@ -63,6 +63,9 @@ pub fn execute(
     command: cli.Command,
     number: ?u64,
     provider_url: ?[]const u8,
+    name: ?[]const u8,
+    description: ?[]const u8,
+    private: bool,
 ) !void {
     const provider = getProvider(ctx.provider);
     if (provider == null) {
@@ -86,6 +89,9 @@ pub fn execute(
         .context => try printContext(stdout, ctx, p, provider_url),
         .status => try printStatus(stdout, ctx, p, provider_url),
         .repo_view => try execRepoView(allocator, stdout, stderr, p, t, ctx),
+        .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private),
+        .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name),
+        .repo_archive => try execRepoArchive(allocator, stdout, stderr, p, t, ctx, name),
         .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx),
         .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
@@ -111,6 +117,68 @@ fn printStatus(writer: anytype, ctx: context.ResolvedContext, provider: *const t
     _ = provider;
     _ = provider_url;
     try writer.interface.print("{s} → {s}/{s}\n", .{ ctx.provider, ctx.owner, ctx.repo });
+}
+
+fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, description: ?[]const u8, private: bool) !void {
+    if (provider.repos) |repos| {
+        const repo_name = name orelse {
+            try stderr.interface.print("error: repo create requires a name\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const params = types.RepoCreateParams{
+            .name = repo_name,
+            .description = description,
+            .private = private,
+        };
+        const info = try repos.create(allocator, token, ctx.owner, params);
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Name", info.name },
+            .{ "Full name", info.full_name },
+            .{ "URL", info.url },
+            .{ "Visibility", info.visibility },
+        }, false);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support repository creation.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execRepoDelete(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8) !void {
+    if (provider.repos) |repos| {
+        const repo_name = name orelse {
+            try stderr.interface.print("error: repo delete requires a name\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        try repos.delete(allocator, token, ctx.owner, repo_name);
+        try stdout.interface.print("Deleted {s}/{s}\n", .{ ctx.owner, repo_name });
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support repository deletion.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8) !void {
+    if (provider.repos) |repos| {
+        const repo_name = name orelse {
+            try stderr.interface.print("error: repo archive requires a name\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const info = try repos.archive(allocator, token, ctx.owner, repo_name, true);
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Name", info.name },
+            .{ "Archived", if (info.visibility.len > 0) "yes" else "yes" },
+            .{ "URL", info.url },
+        }, false);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support repository archiving.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
 }
 
 fn execRepoView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {

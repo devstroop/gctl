@@ -13,6 +13,12 @@ pub const Capability = enum {
 
 // ── Shared response types ──────────────────────────────────────────────────
 
+pub const RepoCreateParams = struct {
+    name: []const u8,
+    description: ?[]const u8 = null,
+    private: bool = false,
+};
+
 pub const RepoInfo = struct {
     name: []const u8,
     full_name: []const u8,
@@ -72,6 +78,9 @@ pub const RunInfo = struct {
 
 pub const RepoVtable = struct {
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror!RepoInfo,
+    create: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, params: RepoCreateParams) anyerror!RepoInfo,
+    delete: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror!void,
+    archive: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, archived: bool) anyerror!RepoInfo,
 };
 
 pub const IssueVtable = struct {
