@@ -235,8 +235,20 @@ pub const repo_vtable: types.RepoVtable = .{ .view = repoView, .create = repoCre
 pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
 pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
 
+fn labelSetAll(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.LabelParams) !void {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = params;
+    return error.NotSupported;
+}
+
+pub const label_vtable: types.LabelVtable = .{ .set_all = labelSetAll };
+
 test {
     _ = repo_vtable;
     _ = issue_vtable;
     _ = pr_vtable;
+    _ = label_vtable;
 }

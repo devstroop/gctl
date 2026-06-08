@@ -173,6 +173,67 @@ fn repoArchive(allocator: std.mem.Allocator, token: []const u8, owner: []const u
 
 pub const repo_vtable: types.RepoVtable = .{ .view = repoView, .create = repoCreate, .delete = repoDelete, .archive = repoArchive };
 
+// ── Labels ──────────────────────────────────────────────────────────────────
+
+fn encodeLabel(allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
+    var buf = try std.ArrayList(u8).initCapacity(allocator, name.len * 3);
+    for (name) |c| {
+        switch (c) {
+            ' ', '#', '%', '/', '?', '&', '=', ':', '@', '!' => {
+                try buf.append(allocator, '%');
+                try buf.append(allocator, std.fmt.digitToChar(c >> 4, .upper));
+                try buf.append(allocator, std.fmt.digitToChar(c & 0xF, .upper));
+            },
+            else => try buf.append(allocator, c),
+        }
+    }
+    return buf.toOwnedSlice(allocator);
+}
+
+fn labelSetAll(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.LabelParams) !void {
+    // 1. List existing labels
+    const list_path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/labels?per_page=100", .{ owner, repo });
+    defer allocator.free(list_path);
+
+    var list_parsed = try apiGet(allocator, token, list_path);
+    defer list_parsed.deinit();
+
+    // 2. Delete existing labels
+    for (list_parsed.value.array.items) |item| {
+        const raw_name = getString(item.object, "name");
+        const encoded_name = try encodeLabel(allocator, raw_name);
+        defer allocator.free(encoded_name);
+
+        const del_path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/labels/{s}", .{ owner, repo, encoded_name });
+        defer allocator.free(del_path);
+
+        const del_url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, del_path });
+        defer allocator.free(del_url);
+
+        const resp = try http.client.delete(allocator, del_url, token);
+        defer allocator.free(resp.body);
+        if (resp.status < 200 or resp.status >= 300) {
+            std.log.err("GitHub API DELETE returned {d}: {s}", .{ resp.status, resp.body });
+            return error.HttpError;
+        }
+    }
+
+    // 3. Create all new labels
+    for (params.labels) |ldef| {
+        const create_path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/labels", .{ owner, repo });
+        defer allocator.free(create_path);
+
+        const color = ldef.color orelse "d73a4a";
+        const body = try std.fmt.allocPrint(allocator, "{{\"name\":\"{s}\",\"color\":\"{s}\"}}", .{ ldef.name, color });
+        defer allocator.free(body);
+
+        var parsed = try apiPost(allocator, token, create_path, body);
+        parsed.deinit();
+    }
+}
+
+pub const label_vtable: types.LabelVtable = .{ .set_all = labelSetAll };
+
 // ── Issues ─────────────────────────────────────────────────────────────────
 
 fn issueList(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) ![]types.IssueInfo {
@@ -302,4 +363,5 @@ test {
     _ = repo_vtable;
     _ = issue_vtable;
     _ = pr_vtable;
+    _ = label_vtable;
 }

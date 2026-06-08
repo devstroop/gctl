@@ -15,6 +15,7 @@ const providers = [_]types.Provider{
         .repos = github.repo_vtable,
         .issues = github.issue_vtable,
         .prs = github.pr_vtable,
+        .labels = github.label_vtable,
         .releases = null, // v0.4
         .pipelines = null, // v0.5
     },
@@ -66,6 +67,7 @@ pub fn execute(
     name: ?[]const u8,
     description: ?[]const u8,
     private: bool,
+    labels: ?[]const u8,
 ) !void {
     const provider = getProvider(ctx.provider);
     if (provider == null) {
@@ -92,6 +94,7 @@ pub fn execute(
         .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private),
         .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name),
         .repo_archive => try execRepoArchive(allocator, stdout, stderr, p, t, ctx, name),
+        .label_set_all => try execLabelSetAll(allocator, stdout, stderr, p, t, ctx, labels),
         .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx),
         .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
@@ -177,6 +180,37 @@ fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
         return;
     }
     try stderr.interface.print("error: {s} does not support repository archiving.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execLabelSetAll(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, labels_raw: ?[]const u8) !void {
+    if (provider.labels) |labels_vtable| {
+        const raw = labels_raw orelse {
+            try stderr.interface.print("error: label set_all requires a comma-separated list of labels\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+
+        var label_list = try std.ArrayList(types.LabelDef).initCapacity(allocator, 16);
+        defer label_list.deinit(allocator);
+
+        var it = std.mem.splitScalar(u8, raw, ',');
+        while (it.next()) |name| {
+            const trimmed = std.mem.trim(u8, name, " ");
+            if (trimmed.len > 0) {
+                try label_list.append(allocator, types.LabelDef{
+                    .name = trimmed,
+                });
+            }
+        }
+
+        const params = types.LabelParams{ .labels = label_list.items };
+        try labels_vtable.set_all(allocator, token, ctx.owner, ctx.repo, params);
+        try stdout.interface.print("Replaced labels on {s}/{s} with {d} label(s)\n", .{ ctx.owner, ctx.repo, label_list.items.len });
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support label operations.\n", .{provider.name});
     stderr.end() catch {};
     std.process.exit(1);
 }
