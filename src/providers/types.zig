@@ -13,6 +13,16 @@ pub const Capability = enum {
 
 // ── Shared response types ──────────────────────────────────────────────────
 
+pub const LabelDef = struct {
+    name: []const u8,
+    color: ?[]const u8 = null,
+    description: ?[]const u8 = null,
+};
+
+pub const LabelParams = struct {
+    labels: []const LabelDef,
+};
+
 pub const RepoCreateParams = struct {
     name: []const u8,
     description: ?[]const u8 = null,
@@ -93,6 +103,10 @@ pub const PRVtable = struct {
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!PullRequestInfo,
 };
 
+pub const LabelVtable = struct {
+    set_all: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: LabelParams) anyerror!void,
+};
+
 pub const ReleaseVtable = struct {
     list: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror![]ReleaseInfo,
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, tag: []const u8) anyerror!ReleaseInfo,
@@ -111,6 +125,7 @@ pub const Provider = struct {
     repos: ?RepoVtable = null,
     issues: ?IssueVtable = null,
     prs: ?PRVtable = null,
+    labels: ?LabelVtable = null,
     releases: ?ReleaseVtable = null,
     pipelines: ?PipelineVtable = null,
 };
@@ -125,6 +140,7 @@ test {
     _ = RepoVtable;
     _ = IssueVtable;
     _ = PRVtable;
+    _ = LabelVtable;
     _ = ReleaseVtable;
     _ = PipelineVtable;
     _ = Provider;

@@ -8,6 +8,7 @@ pub const Command = enum {
     repo_create,
     repo_delete,
     repo_archive,
+    label_set_all,
     issue_list,
     issue_view,
     pr_list,
@@ -28,6 +29,7 @@ pub const ParsedArgs = struct {
     name: ?[]const u8 = null,
     description: ?[]const u8 = null,
     private: bool = false,
+    labels: ?[]const u8 = null,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -141,6 +143,9 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.name = arg;
                     }
                 },
+                .label_set_all => {
+                    result.labels = arg;
+                },
                 .api => {
                     if (result.method == null) {
                         result.method = arg;
@@ -169,6 +174,7 @@ pub fn printHelp(writer: anytype) !void {
         \\  repo create <name>     Create a repository
         \\  repo delete <name>     Delete a repository
         \\  repo archive <name>    Archive/unarchive a repository
+        \\  label set_all <labels> Replace all repo labels (comma-separated)
         \\  issue list             List open issues
         \\  issue view <number>    View an issue
         \\  pr list                List open pull/merge requests
