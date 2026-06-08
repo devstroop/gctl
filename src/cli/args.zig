@@ -5,31 +5,14 @@ pub const Command = enum {
     context,
     status,
     repo_view,
+    repo_create,
+    repo_delete,
+    repo_archive,
     issue_list,
     issue_view,
     pr_list,
     pr_view,
     api,
-    // v0.3+
-    // issue_create,
-    // issue_close,
-    // pr_create,
-    // pr_merge,
-    // v0.4+
-    // release_list,
-    // release_view,
-    // release_create,
-    // v0.5+
-    // run_list,
-    // run_view,
-    // run_rerun,
-    // v1.0+
-    // auth_login,
-    // auth_logout,
-    // auth_list,
-    // auth_status,
-    // doctor,
-    // completion,
 };
 
 pub const ParsedArgs = struct {
@@ -42,6 +25,9 @@ pub const ParsedArgs = struct {
     owner_repo: ?[]const u8 = null,
     method: ?[]const u8 = null,
     path: ?[]const u8 = null,
+    name: ?[]const u8 = null,
+    description: ?[]const u8 = null,
+    private: bool = false,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -64,7 +50,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
         const a = args[cmd_start];
         if ((std.mem.eql(u8, a, "--provider") or std.mem.eql(u8, a, "-p") or
             std.mem.eql(u8, a, "--account") or std.mem.eql(u8, a, "-a") or
-            std.mem.eql(u8, a, "--provider-url") or std.mem.eql(u8, a, "-u")) and
+            std.mem.eql(u8, a, "--provider-url") or std.mem.eql(u8, a, "-u") or
+            std.mem.eql(u8, a, "--description")) and
             cmd_start + 1 < args.len and !std.mem.startsWith(u8, args[cmd_start + 1], "-"))
         {
             cmd_start += 1; // skip the value too
@@ -120,6 +107,15 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
             if (i < args.len) {
                 result.provider_url = args[i];
             }
+        } else if (std.mem.eql(u8, arg, "--description")) {
+            i += 1;
+            if (i < args.len) {
+                result.description = args[i];
+            }
+        } else if (std.mem.eql(u8, arg, "--private")) {
+            result.private = true;
+        } else if (std.mem.eql(u8, arg, "--no-private")) {
+            result.private = false;
         } else if (std.mem.startsWith(u8, arg, "--provider=")) {
             result.provider_override = arg["--provider=".len..];
         } else if (std.mem.startsWith(u8, arg, "--account=")) {
@@ -134,6 +130,16 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                 },
                 .repo_view => {
                     result.owner_repo = arg;
+                },
+                .repo_create => {
+                    if (result.name == null) {
+                        result.name = arg;
+                    }
+                },
+                .repo_delete, .repo_archive => {
+                    if (result.name == null) {
+                        result.name = arg;
+                    }
                 },
                 .api => {
                     if (result.method == null) {
@@ -152,36 +158,40 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
 
 pub fn printHelp(writer: anytype) !void {
     try writer.interface.writeAll(
-        \\gctl — One CLI for every Git forge
+        \\gctl — Cross-forge Git operations, one CLI
         \\
         \\Usage: gctl <command> [options]
         \\
         \\Commands:
-        \\  context              Show detected provider and repo context
-        \\  status               High-level repo summary
-        \\  repo view [owner/repo]  View repository details
-        \\  issue list           List open issues
-        \\  issue view <number>  View an issue
-        \\  pr list              List open pull requests
-        \\  pr view <number>     View a pull request
-        \\  api <method> <path>  Direct API call
+        \\  context                Show detected provider and repo context
+        \\  status                 High-level repo summary
+        \\  repo view [owner/repo] View repository details
+        \\  repo create <name>     Create a repository
+        \\  repo delete <name>     Delete a repository
+        \\  repo archive <name>    Archive/unarchive a repository
+        \\  issue list             List open issues
+        \\  issue view <number>    View an issue
+        \\  pr list                List open pull/merge requests
+        \\  pr view <number>       View a pull/merge request
+        \\  api <method> <path>    Direct API call
         \\
-        \\Global flags:
-        \\  --provider, -p <name>   Override provider (github|gitlab|gitea|custom)
-        \\  --provider-url, -u <url> Base URL for custom provider
-        \\  --account, -a <name>    Override account
-        \\  --help, -h              Show this help
+        \\Flags:
+        \\  --provider, -p <name>     Override provider (github|gitlab)
+        \\  --provider-url, -u <url>  Base URL for custom provider
+        \\  --account, -a <name>      Override account
+        \\  --description <text>      Repo description (repo create)
+        \\  --private                 Make repo private (repo create)
+        \\  --help, -h                Show this help
         \\
         \\Environment:
         \\  GITHUB_TOKEN       GitHub personal access token
         \\  GITLAB_TOKEN       GitLab personal access token
-        \\  GITEA_TOKEN        Gitea/Forgejo token
-        \\  TOKEN              Generic token (for custom providers)
+        \\  TOKEN              Generic token for custom providers
         \\
         \\Examples:
         \\  gctl context
+        \\  gctl repo create my-project --private --description "My thing"
         \\  gctl issue list
-        \\  gctl --provider custom --provider-url https://git.example.com/api/v1 context
         \\
     );
 }
