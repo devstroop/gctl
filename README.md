@@ -123,9 +123,9 @@ zig build test
 
 ---
 
-## Branching
+## Contributing
 
-See [docs/branching-strategy.md](docs/branching-strategy.md) for the feature branch workflow and roadmap.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching workflow, build process, and code conventions.
 
 ---
 
