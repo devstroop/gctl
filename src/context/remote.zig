@@ -155,8 +155,7 @@ pub fn parseRemote(url: []const u8, allocator: std.mem.Allocator) ?struct { prov
             .repo = owner_repo.repo,
         };
     }
-    if (std.mem.indexOf(u8, url, "gitea.com") != null)
-    {
+    if (std.mem.indexOf(u8, url, "gitea.com") != null) {
         const owner_repo = extractOwnerRepo(url, allocator) orelse return null;
         return .{
             .provider = allocator.dupe(u8, "gitea") catch return null,

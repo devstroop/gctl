@@ -127,7 +127,7 @@ test "parseArgs: --account flag" {
 
 test "parseArgs: --help flag before command" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "--help" };
+    const args = [_][]const u8{"--help"};
     try std.testing.expectError(error.HelpRequested, cli.parseArgs(allocator, &args));
 }
 
@@ -139,13 +139,13 @@ test "parseArgs: --help flag with command" {
 
 test "parseArgs: -h short flag" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "-h" };
+    const args = [_][]const u8{"-h"};
     try std.testing.expectError(error.HelpRequested, cli.parseArgs(allocator, &args));
 }
 
 test "parseArgs: unknown command" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "blarg" };
+    const args = [_][]const u8{"blarg"};
     try std.testing.expectError(error.InvalidCommand, cli.parseArgs(allocator, &args));
 }
 
