@@ -232,7 +232,26 @@ fn repoArchive(allocator: std.mem.Allocator, token: []const u8, owner: []const u
 }
 
 pub const repo_vtable: types.RepoVtable = .{ .view = repoView, .create = repoCreate, .delete = repoDelete, .archive = repoArchive };
-pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
+
+fn issueCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.IssueCreateParams) !types.IssueInfo {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = params;
+    return error.NotSupported;
+}
+
+fn issueClose(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !types.IssueInfo {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = number;
+    return error.NotSupported;
+}
+
+pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView, .create = issueCreate, .close = issueClose };
 pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
 
 fn labelSetAll(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.LabelParams) !void {
