@@ -87,7 +87,7 @@ pub fn main() !void {
     // Note: token from env vars points to process memory, no need to free.
 
     // Look up provider & execute command
-    try providers.execute(allocator, &stdout, &stderr, ctx, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels);
+    try providers.execute(allocator, &stdout, &stderr, ctx, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels, result.title);
 }
 
 fn upperProvider(name: []const u8) []const u8 {

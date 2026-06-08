@@ -93,9 +93,16 @@ pub const RepoVtable = struct {
     archive: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, archived: bool) anyerror!RepoInfo,
 };
 
+pub const IssueCreateParams = struct {
+    title: []const u8,
+    body: ?[]const u8 = null,
+};
+
 pub const IssueVtable = struct {
     list: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror![]IssueInfo,
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!IssueInfo,
+    create: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: IssueCreateParams) anyerror!IssueInfo,
+    close: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!IssueInfo,
 };
 
 pub const PRVtable = struct {

@@ -68,6 +68,7 @@ pub fn execute(
     description: ?[]const u8,
     private: bool,
     labels: ?[]const u8,
+    title: ?[]const u8,
 ) !void {
     const provider = getProvider(ctx.provider);
     if (provider == null) {
@@ -95,6 +96,8 @@ pub fn execute(
         .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name),
         .repo_archive => try execRepoArchive(allocator, stdout, stderr, p, t, ctx, name),
         .label_set_all => try execLabelSetAll(allocator, stdout, stderr, p, t, ctx, labels),
+        .issue_create => try execIssueCreate(allocator, stdout, stderr, p, t, ctx, title),
+        .issue_close => try execIssueClose(allocator, stdout, stderr, p, t, ctx, number),
         .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx),
         .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
@@ -253,6 +256,49 @@ fn execIssueList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype,
         return;
     }
     try stderr.interface.print("error: {s} does not support issues.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execIssueCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8) !void {
+    if (provider.issues) |issues| {
+        const issue_title = title orelse {
+            try stderr.interface.print("error: issue create requires a title\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const params = types.IssueCreateParams{ .title = issue_title };
+        const info = try issues.create(allocator, token, ctx.owner, ctx.repo, params);
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Number", try std.fmt.allocPrint(allocator, "{d}", .{info.number}) },
+            .{ "Title", info.title },
+            .{ "State", info.state },
+            .{ "URL", info.url },
+        }, false);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support issue operations.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execIssueClose(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+    if (provider.issues) |issues| {
+        const num = number orelse {
+            try stderr.interface.print("error: issue close requires an issue number\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const info = try issues.close(allocator, token, ctx.owner, ctx.repo, num);
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Number", try std.fmt.allocPrint(allocator, "{d}", .{info.number}) },
+            .{ "Title", info.title },
+            .{ "State", info.state },
+            .{ "URL", info.url },
+        }, false);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support issue operations.\n", .{provider.name});
     stderr.end() catch {};
     std.process.exit(1);
 }

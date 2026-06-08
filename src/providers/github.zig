@@ -304,7 +304,67 @@ fn issueView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8,
     };
 }
 
-pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
+fn issueCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.IssueCreateParams) !types.IssueInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/issues", .{ owner, repo });
+    defer allocator.free(path);
+
+    const body_str = params.body orelse "";
+    const json_body = try std.fmt.allocPrint(allocator, "{{\"title\":\"{s}\",\"body\":\"{s}\"}}", .{ params.title, body_str });
+    defer allocator.free(json_body);
+
+    var parsed = try apiPost(allocator, token, path, json_body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    var label_names = try std.ArrayList([]const u8).initCapacity(allocator, 4);
+    if (obj.get("labels")) |labels_val| {
+        for (labels_val.array.items) |lbl| {
+            try label_names.append(allocator, getString(lbl.object, "name"));
+        }
+    }
+
+    return types.IssueInfo{
+        .number = getU64(obj, "number"),
+        .title = getString(obj, "title"),
+        .state = getString(obj, "state"),
+        .author = if (obj.get("user")) |u| getString(u.object, "login") else "",
+        .labels = try label_names.toOwnedSlice(allocator),
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "created_at"),
+        .body = getString(obj, "body"),
+    };
+}
+
+fn issueClose(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !types.IssueInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/issues/{d}", .{ owner, repo, number });
+    defer allocator.free(path);
+
+    const json_body = "{\"state\":\"closed\"}";
+
+    var parsed = try apiPatch(allocator, token, path, json_body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    var label_names = try std.ArrayList([]const u8).initCapacity(allocator, 4);
+    if (obj.get("labels")) |labels_val| {
+        for (labels_val.array.items) |lbl| {
+            try label_names.append(allocator, getString(lbl.object, "name"));
+        }
+    }
+
+    return types.IssueInfo{
+        .number = getU64(obj, "number"),
+        .title = getString(obj, "title"),
+        .state = getString(obj, "state"),
+        .author = if (obj.get("user")) |u| getString(u.object, "login") else "",
+        .labels = try label_names.toOwnedSlice(allocator),
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "created_at"),
+        .body = getString(obj, "body"),
+    };
+}
+
+pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView, .create = issueCreate, .close = issueClose };
 
 // ── Pull Requests ──────────────────────────────────────────────────────────
 
