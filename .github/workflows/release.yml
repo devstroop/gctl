@@ -20,6 +20,6 @@ jobs:
         with:
           version: 0.15.0
       - run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: zig-out/bin/gctl*
