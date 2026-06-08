@@ -114,7 +114,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // Integration test files
-    const test_files = [_][]const u8{ "context_test", "cli_test", "github_test" };
+    const test_files = [_][]const u8{ "context_test", "cli_test", "github_test", "gitlab_test" };
     for (test_files) |name| {
         const test_path = b.fmt("tests/{s}.zig", .{name});
         const test_exe = b.addTest(.{
