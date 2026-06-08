@@ -77,8 +77,80 @@ fn repoView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, 
     };
 }
 
+// ── Issues ─────────────────────────────────────────────────────────────────
+
+fn issueList(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) ![]types.IssueInfo {
+    const encoded = try encodeProjectPath(allocator, owner, repo);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/projects/{s}/issues?state=opened&per_page=30", .{encoded});
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const arr = parsed.value.array.items;
+    var list = try std.ArrayList(types.IssueInfo).initCapacity(allocator, arr.len);
+
+    for (arr) |item| {
+        const obj = item.object;
+
+        // GitLab labels are an array of strings, not objects like GitHub
+        var label_names = try std.ArrayList([]const u8).initCapacity(allocator, 4);
+        if (obj.get("labels")) |labels_val| {
+            for (labels_val.array.items) |lbl| {
+                try label_names.append(allocator, lbl.string);
+            }
+        }
+
+        try list.append(allocator, types.IssueInfo{
+            .number = getU64(obj, "iid"),
+            .title = getString(obj, "title"),
+            .state = if (std.mem.eql(u8, getString(obj, "state"), "opened")) "open" else "closed",
+            .author = if (obj.get("author")) |a| getString(a.object, "username") else "",
+            .labels = try label_names.toOwnedSlice(allocator),
+            .url = getString(obj, "web_url"),
+            .created_at = getString(obj, "created_at"),
+            .body = getString(obj, "description"),
+        });
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
+fn issueView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !types.IssueInfo {
+    const encoded = try encodeProjectPath(allocator, owner, repo);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/projects/{s}/issues/{d}", .{ encoded, number });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+
+    var label_names = try std.ArrayList([]const u8).initCapacity(allocator, 4);
+    if (obj.get("labels")) |labels_val| {
+        for (labels_val.array.items) |lbl| {
+            try label_names.append(allocator, lbl.string);
+        }
+    }
+
+    return types.IssueInfo{
+        .number = getU64(obj, "iid"),
+        .title = getString(obj, "title"),
+        .state = if (std.mem.eql(u8, getString(obj, "state"), "opened")) "open" else "closed",
+        .author = if (obj.get("author")) |a| getString(a.object, "username") else "",
+        .labels = try label_names.toOwnedSlice(allocator),
+        .url = getString(obj, "web_url"),
+        .created_at = getString(obj, "created_at"),
+        .body = getString(obj, "description"),
+    };
+}
+
 pub const repo_vtable: types.RepoVtable = .{ .view = repoView };
-pub const issue_vtable: ?types.IssueVtable = null;
+pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView };
 pub const pr_vtable: ?types.PRVtable = null;
 
 test {

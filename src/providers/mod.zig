@@ -22,7 +22,7 @@ const providers = [_]types.Provider{
         .name = "gitlab",
         .base_url = "https://gitlab.com/api/v4",
         .repos = gitlab.repo_vtable,
-        .issues = null, // v0.2
+        .issues = gitlab.issue_vtable,
         .prs = null, // v0.2
     },
     .{
