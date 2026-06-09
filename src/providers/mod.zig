@@ -5,6 +5,7 @@ const gitlab = @import("gitlab.zig");
 const gitea = @import("gitea.zig");
 const context = @import("context");
 const cli = @import("cli");
+const http = @import("http");
 
 // ── Provider registry ──────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ pub fn execute(
     number: ?u64,
     provider_url: ?[]const u8,
     path: ?[]const u8,
+    method: ?[]const u8,
     name: ?[]const u8,
     description: ?[]const u8,
     private: bool,
@@ -131,7 +133,7 @@ pub fn execute(
         .@"import" => unreachable,
         .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target),
         .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target),
-        .api => try stderr.interface.print("TODO: api command\n", .{}),
+        .api => try execApi(stdout, stderr, allocator, p, t, provider_url, method, path),
         .network => unreachable,
     }
 }
@@ -504,6 +506,79 @@ fn execDiff(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs
         try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
         std.process.exit(1);
     }
+}
+
+fn execApi(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, provider_url: ?[]const u8, method: ?[]const u8, api_path: ?[]const u8) !void {
+    const m = method orelse {
+        try stderr.interface.print("error: api requires an HTTP method (e.g. GET /repos/owner/repo)\n", .{});
+        std.process.exit(1);
+    };
+    const p = api_path orelse {
+        try stderr.interface.print("error: api requires a path (e.g. /repos/owner/repo)\n", .{});
+        std.process.exit(1);
+    };
+
+    // Map method string to std.http.Method
+    const method_enum = parseHttpMethod(m) orelse {
+        try stderr.interface.print("error: unsupported HTTP method '{s}'\n", .{m});
+        std.process.exit(1);
+    };
+
+    // Construct URL
+    const base_url = provider_url orelse provider.base_url;
+    const url = if (std.mem.startsWith(u8, p, "http"))
+        p
+    else if (std.mem.startsWith(u8, p, "/"))
+        try std.fmt.allocPrint(allocator, "{s}{s}", .{ base_url, p })
+    else
+        try std.fmt.allocPrint(allocator, "{s}/{s}", .{ base_url, p });
+    defer if (!std.mem.startsWith(u8, p, "http")) allocator.free(url);
+
+    // Read stdin body for methods that support it
+    const body = if (methodSupportsBody(method_enum)) blk: {
+        const stdin_raw = std.fs.File.stdin();
+        break :blk stdin_raw.readToEndAlloc(allocator, 1024 * 1024) catch null;
+    } else null;
+    defer if (body) |b| allocator.free(b);
+
+    // Make the request
+    const resp = switch (method_enum) {
+        .GET => try http.get(allocator, url, token),
+        .POST => try http.post(allocator, url, token, body orelse ""),
+        .PUT => try http.put(allocator, url, token, body orelse ""),
+        .PATCH => try http.patch(allocator, url, token, body orelse ""),
+        .DELETE => try http.delete(allocator, url, token),
+        else => {
+            try stderr.interface.print("error: method not implemented\n", .{});
+            std.process.exit(1);
+        },
+    };
+    defer allocator.free(resp.body);
+
+    // Print response
+    try stdout.interface.print("HTTP {d}\n\n", .{resp.status});
+    try stdout.interface.writeAll(resp.body);
+    if (resp.body.len > 0 and resp.body[resp.body.len - 1] != '\n') {
+        try stdout.interface.writeAll("\n");
+    }
+}
+
+fn parseHttpMethod(s: []const u8) ?std.http.Method {
+    if (std.ascii.eqlIgnoreCase(s, "GET")) return .GET;
+    if (std.ascii.eqlIgnoreCase(s, "POST")) return .POST;
+    if (std.ascii.eqlIgnoreCase(s, "PUT")) return .PUT;
+    if (std.ascii.eqlIgnoreCase(s, "PATCH")) return .PATCH;
+    if (std.ascii.eqlIgnoreCase(s, "DELETE")) return .DELETE;
+    if (std.ascii.eqlIgnoreCase(s, "HEAD")) return .HEAD;
+    if (std.ascii.eqlIgnoreCase(s, "OPTIONS")) return .OPTIONS;
+    return null;
+}
+
+fn methodSupportsBody(m: std.http.Method) bool {
+    return switch (m) {
+        .POST, .PUT, .PATCH => true,
+        else => false,
+    };
 }
 
 fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
