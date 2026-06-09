@@ -130,6 +130,7 @@ pub fn execute(
         .@"export" => unreachable,
         .@"import" => unreachable,
         .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target),
+        .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target),
         .api => try stderr.interface.print("TODO: api command\n", .{}),
         .network => unreachable,
     }
@@ -365,6 +366,140 @@ fn execCopy(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs
         };
         const created = try tgt_provider.prs.?.create(allocator, token, tgt_ctx.owner, tgt_ctx.repo, params);
         try stdout.interface.print("Copied PR #{d} → {s} #{d}\n", .{ num, tgt_remote, created.number });
+    } else {
+        try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
+        std.process.exit(1);
+    }
+}
+
+fn diffIssue(stdout: anytype, a: types.IssueInfo, b: types.IssueInfo) !void {
+    try stdout.interface.print("Comparing issue #{d}:\n\n", .{a.number});
+    if (!std.mem.eql(u8, a.title, b.title)) {
+        try stdout.interface.print("  title:\n    - \"{s}\"\n    + \"{s}\"\n", .{ a.title, b.title });
+    }
+    if (!std.mem.eql(u8, a.state, b.state)) {
+        try stdout.interface.print("  state:  {s} vs {s}\n", .{ a.state, b.state });
+    }
+    if (!std.mem.eql(u8, a.author, b.author)) {
+        try stdout.interface.print("  author: {s} vs {s}\n", .{ a.author, b.author });
+    }
+    if (!std.mem.eql(u8, a.body, b.body)) {
+        try stdout.interface.print("  body:   (different)\n", .{});
+    }
+    // Labels comparison
+    {
+        var same_labels = a.labels.len == b.labels.len;
+        if (same_labels) {
+            for (a.labels, b.labels) |la, lb| {
+                if (!std.mem.eql(u8, la, lb)) { same_labels = false; break; }
+            }
+        }
+        if (!same_labels) {
+            try stdout.interface.print("  labels:\n", .{});
+            try stdout.interface.print("    -", .{});
+            for (a.labels) |l| try stdout.interface.print(" \"{s}\"", .{l});
+            try stdout.interface.print("\n", .{});
+            try stdout.interface.print("    +", .{});
+            for (b.labels) |l| try stdout.interface.print(" \"{s}\"", .{l});
+            try stdout.interface.print("\n", .{});
+        }
+    }
+}
+
+fn diffPR(stdout: anytype, a: types.PullRequestInfo, b: types.PullRequestInfo) !void {
+    try stdout.interface.print("Comparing PR #{d}:\n\n", .{a.number});
+    if (!std.mem.eql(u8, a.title, b.title)) {
+        try stdout.interface.print("  title:\n    - \"{s}\"\n    + \"{s}\"\n", .{ a.title, b.title });
+    }
+    if (!std.mem.eql(u8, a.state, b.state)) {
+        try stdout.interface.print("  state:  {s} vs {s}\n", .{ a.state, b.state });
+    }
+    if (!std.mem.eql(u8, a.author, b.author)) {
+        try stdout.interface.print("  author: {s} vs {s}\n", .{ a.author, b.author });
+    }
+    if (a.draft != b.draft) {
+        try stdout.interface.print("  draft:  {} vs {}\n", .{ a.draft, b.draft });
+    }
+    if (!std.mem.eql(u8, a.source_branch, b.source_branch)) {
+        try stdout.interface.print("  source_branch:  {s} vs {s}\n", .{ a.source_branch, b.source_branch });
+    }
+    if (!std.mem.eql(u8, a.target_branch, b.target_branch)) {
+        try stdout.interface.print("  target_branch:  {s} vs {s}\n", .{ a.target_branch, b.target_branch });
+    }
+}
+
+fn execDiff(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8) !void {
+    const src_path = source orelse {
+        try stderr.interface.print("error: diff requires a source path (e.g. issues/14)\n", .{});
+        std.process.exit(1);
+    };
+    const tgt_remote = target orelse {
+        try stderr.interface.print("error: diff requires a target remote (e.g. upstream)\n", .{});
+        std.process.exit(1);
+    };
+
+    // Find target context
+    const tgt_ctx = blk: {
+        for (ctxs) |c| {
+            if (std.mem.eql(u8, c.remote_name, tgt_remote)) break :blk c;
+        }
+        try stderr.interface.print("error: remote '{s}' not found\n", .{tgt_remote});
+        std.process.exit(1);
+    };
+
+    const tgt_provider = getProvider(tgt_ctx.provider) orelse {
+        try stderr.interface.print("error: unknown provider '{s}'\n", .{tgt_ctx.provider});
+        std.process.exit(1);
+    };
+
+    // Parse source path
+    const parsed = parseResourcePath(allocator, src_path) catch {
+        try stderr.interface.print("error: invalid source path '{s}'\n", .{src_path});
+        std.process.exit(1);
+    };
+    defer if (parsed.id_str) |id| allocator.free(id);
+
+    const src_ctx = ctxs[0];
+
+    const t = parsed.resource_type;
+    if (std.mem.eql(u8, t, "issues")) {
+        if (provider.issues == null) {
+            try stderr.interface.print("error: issues not supported\n", .{});
+            std.process.exit(1);
+        }
+        if (tgt_provider.issues == null) {
+            try stderr.interface.print("error: issues not supported on '{s}'\n", .{tgt_remote});
+            std.process.exit(1);
+        }
+        const num = std.fmt.parseUnsigned(u64, parsed.id_str orelse {
+            try stderr.interface.print("error: source path must include an issue number\n", .{});
+            std.process.exit(1);
+        }, 10) catch {
+            try stderr.interface.print("error: invalid issue number\n", .{});
+            std.process.exit(1);
+        };
+        const a = try provider.issues.?.view(allocator, token, src_ctx.owner, src_ctx.repo, num);
+        const b = try tgt_provider.issues.?.view(allocator, token, tgt_ctx.owner, tgt_ctx.repo, num);
+        try diffIssue(stdout, a, b);
+    } else if (std.mem.eql(u8, t, "prs")) {
+        if (provider.prs == null) {
+            try stderr.interface.print("error: PRs not supported\n", .{});
+            std.process.exit(1);
+        }
+        if (tgt_provider.prs == null) {
+            try stderr.interface.print("error: PRs not supported on '{s}'\n", .{tgt_remote});
+            std.process.exit(1);
+        }
+        const num = std.fmt.parseUnsigned(u64, parsed.id_str orelse {
+            try stderr.interface.print("error: source path must include a PR number\n", .{});
+            std.process.exit(1);
+        }, 10) catch {
+            try stderr.interface.print("error: invalid PR number\n", .{});
+            std.process.exit(1);
+        };
+        const a = try provider.prs.?.view(allocator, token, src_ctx.owner, src_ctx.repo, num);
+        const b = try tgt_provider.prs.?.view(allocator, token, tgt_ctx.owner, tgt_ctx.repo, num);
+        try diffPR(stdout, a, b);
     } else {
         try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
         std.process.exit(1);

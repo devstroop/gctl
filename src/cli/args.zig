@@ -8,6 +8,7 @@ pub const Command = enum {
     @"export",
     @"import",
     copy,
+    diff,
     repo_view,
     repo_create,
     repo_delete,
@@ -190,7 +191,7 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.path = arg;
                     }
                 },
-                .copy => {
+                .copy, .diff => {
                     if (result.source == null) {
                         result.source = arg;
                     } else if (result.target == null) {
@@ -232,6 +233,7 @@ pub fn printHelp(writer: anytype) !void {
         \\  export <resource-path>  Write resource as JSON to stdout
         \\  import <resource-path>  Create resource from JSON on stdin
         \\  copy <source> <target>  Copy resource across remotes (export | import)
+        \\  diff <source> <target>  Compare resource across remotes
         \\
         \\Flags:
         \\  --provider, -p <name>     Override provider (github|gitlab)
