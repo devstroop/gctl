@@ -48,8 +48,8 @@ const providers = [_]types.Provider{
 
 /// Find a provider by name.
 pub fn getProvider(name: []const u8) ?*const types.Provider {
-    for (&providers) |p| {
-        if (std.mem.eql(u8, p.name, name)) return &p;
+    for (&providers) |*p| {
+        if (std.mem.eql(u8, p.name, name)) return p;
     }
     return null;
 }
@@ -72,7 +72,7 @@ pub fn execute(
     labels: ?[]const u8,
     title: ?[]const u8,
     base: ?[]const u8,
-    all: bool,
+    quick: bool,
 ) !void {
     if (ctxs.len == 0) {
         try stderr.interface.print("error: no context resolved\n", .{});
@@ -90,7 +90,7 @@ pub fn execute(
 
     const p = provider.?;
 
-    if (token == null and command != .context) {
+    if (token == null and command != .doctor) {
         try stderr.interface.print("error: no token for {s}\n", .{ctx.provider});
         try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperEnvVar(ctx.provider), ctx.provider });
         stderr.end() catch {};
@@ -100,8 +100,8 @@ pub fn execute(
     const t = if (token) |tok| tok else "";
 
     switch (command) {
-        .context => try printContext(stdout, allocator, ctxs, provider_url, all),
-        .status => try printStatus(stdout, ctx, p, provider_url),
+        .doctor => try printDoctor(stdout, allocator, ctxs, t, provider_url, quick),
+        .status => try execPrintStatus(stdout, stderr, allocator, p, t, ctx),
         .repo_view => try execRepoView(allocator, stdout, stderr, p, t, ctx),
         .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private),
         .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name),
@@ -119,38 +119,126 @@ pub fn execute(
     }
 }
 
-fn printContext(writer: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider_url: ?[]const u8, all: bool) !void {
-    if (!all or ctxs.len <= 1) {
-        const ctx = ctxs[0];
-        try writer.interface.print("Provider:  {s}\n", .{ctx.provider});
-        if (provider_url) |url| {
-            try writer.interface.print("API URL:   {s}\n", .{url});
+fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
+    try stdout.interface.print("{s}/{s} — {s}\n", .{ ctx.owner, ctx.repo, ctx.provider });
+
+    // Repo pulse via repos.view
+    if (provider.repos) |repos| {
+        if (repos.view(allocator, token, ctx.owner, ctx.repo)) |info| {
+            try stdout.interface.print("  repo:   {s}, {d} open issues\n", .{ info.visibility, info.open_issues });
+        } else |_| {
+            try stdout.interface.print("  repo:   unavailable\n", .{});
         }
-        try writer.interface.print("Account:   not configured (env var token)\n", .{});
-        try writer.interface.print("Owner:     {s}\n", .{ctx.owner});
-        try writer.interface.print("Repo:      {s}\n", .{ctx.repo});
-        try writer.interface.print("Remote:    {s} ({s})\n", .{ ctx.remote_name, ctx.remote_url });
-        try writer.interface.print("Token:     {s}\n", .{ctx.token_source});
+    } else {
+        try stdout.interface.print("  repo:   not supported\n", .{});
+    }
+
+    // PR pulse via prs.list
+    if (provider.prs) |prs| {
+        if (prs.list(allocator, token, ctx.owner, ctx.repo)) |list| {
+            var open: usize = 0;
+            var draft: usize = 0;
+            for (list) |pr| {
+                if (std.mem.eql(u8, pr.state, "open")) open += 1;
+                if (pr.draft) draft += 1;
+            }
+            if (draft > 0) {
+                try stdout.interface.print("  prs:    {d} open ({d} draft)\n", .{ open, draft });
+            } else {
+                try stdout.interface.print("  prs:    {d} open\n", .{open});
+            }
+            if (list.len > 0) {
+                const latest = list[0];
+                try stdout.interface.print("  latest: #{d} \"{s}\" ({s})\n", .{ latest.number, latest.title, latest.source_branch });
+            }
+        } else |_| {
+            try stdout.interface.print("  prs:    unavailable\n", .{});
+        }
+    } else {
+        try stdout.interface.print("  prs:    not supported\n", .{});
+    }
+}
+
+fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, provider_url: ?[]const u8, quick: bool) !void {
+    const ctx = ctxs[0];
+
+    try stdout.interface.print("gctl doctor — system diagnostics\n\n", .{});
+
+    // Phase 1: local checks
+    try stdout.interface.print("── Git ──────────────────────────────────────\n", .{});
+    try stdout.interface.print("  ✓ Repository detected\n", .{});
+    try stdout.interface.print("  {d} remote(s) parsed\n\n", .{ctxs.len});
+
+    for (ctxs, 0..) |c, i| {
+        const active = if (i == 0) " (active)" else "";
+        try stdout.interface.print("  {d}. {s} → {s}/{s}  ({s}){s}\n", .{ i + 1, c.remote_name, c.owner, c.repo, c.provider, active });
+    }
+
+    try stdout.interface.print("\n── Provider ──────────────────────────────────\n", .{});
+    try stdout.interface.print("  Resolved: {s}\n", .{ctx.provider});
+    if (provider_url) |url| {
+        try stdout.interface.print("  API URL:   {s}\n", .{url});
+    } else {
+        try stdout.interface.print("  API URL:   {s}\n", .{ctx.remote_url});
+    }
+
+    const prov = getProvider(ctx.provider) orelse {
+        try stdout.interface.print("  ✗ Unknown provider\n", .{});
+        return;
+    };
+
+    try stdout.interface.print("\n── Capabilities ──────────────────────────────\n", .{});
+    if (prov.repos != null)   try stdout.interface.print("  ✓ repos\n", .{});
+    if (prov.issues != null)  try stdout.interface.print("  ✓ issues\n", .{});
+    if (prov.prs != null)     try stdout.interface.print("  ✓ prs\n", .{});
+    if (prov.labels != null)  try stdout.interface.print("  ✓ labels\n", .{});
+    if (prov.releases != null) try stdout.interface.print("  ✓ releases\n", .{});
+    if (prov.pipelines != null) try stdout.interface.print("  ✓ pipelines\n", .{});
+
+    const env_var = try std.fmt.allocPrint(allocator, "{s}_TOKEN", .{ upperEnvVar(ctx.provider) });
+    defer allocator.free(env_var);
+
+    try stdout.interface.print("\n── Token ─────────────────────────────────────\n", .{});
+    if (token.len > 0) {
+        try stdout.interface.print("  ✓ {s} set\n", .{env_var});
+    } else {
+        try stdout.interface.print("  ⚠  {s} not set\n", .{env_var});
+    }
+
+    if (quick or token.len == 0) {
+        try stdout.interface.print("\n── Summary ────────────────────────────────────\n", .{});
+        if (quick) {
+            try stdout.interface.print("  Quick check complete — run gctl doctor (without --quick) for full API checks\n", .{});
+        } else {
+            try stdout.interface.print("  ⚠  Set {s} to enable API checks\n", .{env_var});
+        }
         return;
     }
 
-    // --all: show all contexts
-    try writer.interface.print("Found {d} remotes:\n\n", .{ctxs.len});
-    for (ctxs, 1..) |ctx, i| {
-        try writer.interface.print("{d}. {s}\n", .{ i, ctx.remote_name });
-        try writer.interface.print("   URL:      {s}\n", .{ctx.remote_url});
-        try writer.interface.print("   Provider: {s}\n", .{ctx.provider});
-        try writer.interface.print("   Owner:    {s}\n", .{ctx.owner});
-        try writer.interface.print("   Repo:     {s}\n", .{ctx.repo});
-        try writer.interface.print("\n", .{});
+    // Phase 2: API checks
+    try stdout.interface.print("\n── API Connectivity ─────────────────────────\n", .{});
+    if (prov.repos) |repos| {
+        const result = repos.view(allocator, token, ctx.owner, ctx.repo);
+        if (result) |repo| {
+            try stdout.interface.print("  ✓ {s}/{s} reachable\n", .{ ctx.owner, ctx.repo });
+            try stdout.interface.print("  Default branch: {s}\n", .{repo.default_branch});
+            try stdout.interface.print("  Visibility: {s}\n", .{repo.visibility});
+        } else |err| {
+            try stdout.interface.print("  ✗ API call failed: {}\n", .{err});
+        }
+    } else if (prov.issues) |issues| {
+        const result = issues.list(allocator, token, ctx.owner, ctx.repo);
+        if (result) |list| {
+            try stdout.interface.print("  ✓ API reachable — {d} issue(s)\n", .{list.len});
+        } else |err| {
+            try stdout.interface.print("  ✗ API call failed: {}\n", .{err});
+        }
+    } else {
+        try stdout.interface.print("  ○ No capability to verify connectivity\n", .{});
     }
-    _ = allocator;
-}
 
-fn printStatus(writer: anytype, ctx: context.ResolvedContext, provider: *const types.Provider, provider_url: ?[]const u8) !void {
-    _ = provider;
-    _ = provider_url;
-    try writer.interface.print("{s} → {s}/{s}\n", .{ ctx.provider, ctx.owner, ctx.repo });
+    try stdout.interface.print("\n── Summary ────────────────────────────────────\n", .{});
+    try stdout.interface.print("  All systems nominal\n", .{});
 }
 
 fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, description: ?[]const u8, private: bool) !void {

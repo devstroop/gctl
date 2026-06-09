@@ -62,6 +62,93 @@ pub const LabelVtable = struct {
 
 ---
 
+## Cross-Provider Operations (v0.4+)
+
+Cross-provider operations work between any two resolved contexts, even across different providers (GitHub → GitLab).
+
+### Resource Path Syntax
+
+Resources are addressed as REST-style paths:
+
+```
+[<remote>/]<type>/[<id>]
+```
+
+| Path | Meaning |
+|------|---------|
+| `issues/14` | Issue #14 in current context |
+| `upstream/prs/42` | PR #42 on upstream remote |
+| `origin/labels/bug` | Label "bug" on origin |
+| `issues/` | All issues (bulk operations) |
+
+The type segment maps directly to the REST API endpoints of the underlying providers (`/repos/{o}/{r}/issues`, `/repos/{o}/{r}/pulls`, etc.). Adding a new resource type requires no CLI changes — only a new vtable and a `Type` entry.
+
+### Model: export/import as Unix Filters
+
+Cross-provider transfer follows the Unix pipe model:
+
+```
+gctl export <resource-path>              → JSON on stdout
+gctl import <resource-path>              → reads JSON from stdin
+gctl copy <source-path> <target-remote>  → export | import (composition)
+```
+
+```
+gctl export issues/14 | jq '.title'              # inspect
+gctl export issues/14 > issue.json               # save to file
+gctl export issues/14 | gctl import upstream/issues/  # pipe across remotes
+gctl export issues/ | gctl import upstream/issues/   # bulk copy all
+```
+
+This composes with any Unix tool and avoids creating a custom transfer protocol.
+
+### Implementation: No Adapter Vtable
+
+`export` = `view()` on the source provider → serialize the existing `Info` struct to JSON.
+`import` = deserialize JSON → populate `CreateParams` → `create()` on the target provider.
+
+```
+export:  view(id)  → IssueInfo  → JSON
+import:  JSON      → IssueCreateParams → create(params)
+copy:    export(source) | import(target)  [internal pipe]
+```
+
+No separate `ResourceAdapter` vtable or `ResourceBlob` type. The only code change needed: `CreateParams` structs must accept all writable fields from their corresponding `Info` struct (labels, state, etc. as optionals).
+
+```zig
+// IssueCreateParams enriched for copy
+pub const IssueCreateParams = struct {
+    title: []const u8,
+    body: ?[]const u8 = null,
+    labels: ?[]const []const u8 = null,
+    state: ?[]const u8 = null,
+};
+```
+
+### Resource Type Registration
+
+Resource types are registered in a comptime map alongside capability vtables:
+
+```zig
+pub const ResourceType = enum {
+    issues,
+    prs,
+    labels,
+    releases,
+    runs,
+};
+```
+
+A provider declares which resource types it supports via its existing capability vtables. If a vtable is `null`, the resource type is not available on that provider.
+
+### Sync Strategy
+
+- `copy` — one-shot: read from source, write to target, report result
+- `diff` — compare resources between two contexts by type (lists items present in source but missing on target)
+- Direction is always explicit (positional remote names). No auto-detection to avoid surprises.
+
+---
+
 ## Resolution Chain
 
 For every command, the context engine resolves:
@@ -69,7 +156,7 @@ For every command, the context engine resolves:
 1. **Explicit flag**: `--provider github` or `--account personal`
 2. **Git remote detection**: Parse `git remote -v`, match URL patterns to known providers
 3. **Config fallback**: `defaults.provider` from `~/.gctl/config.json`
-4. **Error**: "No provider detected. Run `gctl context` to debug."
+4. **Error**: "No provider detected. Run `gctl doctor --quick` to debug."
 
 ### Multi-Context Resolution (v0.3+)
 
@@ -80,8 +167,9 @@ pub fn resolve(allocator, provider_override, provider_url) ![]ResolvedContext
 ```
 
 - Single-repo commands (issue list, pr view) implicitly use `contexts[0]` (the first fetch remote)
-- `gctl context --all` displays every resolved remote
-- Cross-provider commands (mirror, move) accept a source/target context pair
+- `gctl doctor` shows diagnostics (local checks only with `--quick`, full API checks without)
+- `gctl network` shows all resolved remotes with provider type and status
+- Cross-provider commands (`copy`, `diff`) accept a source/target remote pair
 
 Custom provider detection:
 - If `--provider custom` is passed, the override takes priority regardless of what the remote URL matches

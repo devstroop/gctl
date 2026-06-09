@@ -66,19 +66,24 @@ pub fn main() !void {
 
     // Use first context for token resolution
     const first_ctx = ctxs[0];
-    const token = auth.getToken(allocator, first_ctx.provider, result.account) catch |err| {
-        switch (err) {
-            error.NoToken => {
-                try stderr.interface.print("error: no token for {s}\n", .{first_ctx.provider});
-                try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
-                stderr.end() catch {};
-                std.process.exit(1);
-            },
-            else => return err,
+    const token = blk: {
+        if (result.command == .doctor) {
+            break :blk auth.getToken(allocator, first_ctx.provider, result.account) catch null;
         }
+        break :blk (auth.getToken(allocator, first_ctx.provider, result.account) catch |err| {
+            switch (err) {
+                error.NoToken => {
+                    try stderr.interface.print("error: no token for {s}\n", .{first_ctx.provider});
+                    try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
+                    stderr.end() catch {};
+                    std.process.exit(1);
+                },
+                else => return err,
+            }
+        });
     };
 
-    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels, result.title, result.base, result.all);
+    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick);
 }
 
 fn upperProvider(name: []const u8) []const u8 {

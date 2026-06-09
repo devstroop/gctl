@@ -2,7 +2,7 @@ const std = @import("std");
 
 // ── Command tree ───────────────────────────────────────────────────────────
 pub const Command = enum {
-    context,
+    doctor,
     status,
     repo_view,
     repo_create,
@@ -37,6 +37,7 @@ pub const ParsedArgs = struct {
     title: ?[]const u8 = null,
     base: ?[]const u8 = null,
     all: bool = false,
+    quick: bool = false,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -128,6 +129,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
             }
         } else if (std.mem.eql(u8, arg, "--all")) {
             result.all = true;
+        } else if (std.mem.eql(u8, arg, "--quick")) {
+            result.quick = true;
         } else if (std.mem.eql(u8, arg, "--private")) {
             result.private = true;
         } else if (std.mem.eql(u8, arg, "--no-private")) {
@@ -191,8 +194,8 @@ pub fn printHelp(writer: anytype) !void {
         \\Usage: gctl <command> [options]
         \\
         \\Commands:
-        \\  context [--all]        Show detected provider and repo context
-        \\  status                 High-level repo summary
+        \\  doctor [--quick]       System diagnostics (omit token checks with --quick)
+        \\  status                 Repo pulse: open issues, PRs, latest activity
         \\  repo view [owner/repo] View repository details
         \\  repo create <name>     Create a repository
         \\  repo delete <name>     Delete a repository
@@ -223,9 +226,9 @@ pub fn printHelp(writer: anytype) !void {
         \\  TOKEN              Generic token for custom providers
         \\
         \\Examples:
-        \\  gctl context
+        \\  gctl doctor
+        \\  gctl doctor --quick
         \\  gctl repo create my-project --private --description "My thing"
-        \\  gctl issue list
         \\
     );
 }

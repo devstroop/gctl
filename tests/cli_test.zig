@@ -7,13 +7,13 @@ test "parseArgs: no args" {
     try std.testing.expectError(error.InvalidCommand, cli.parseArgs(allocator, &args));
 }
 
-test "parseArgs: context command" {
+test "parseArgs: doctor command" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{"context"};
+    const args = [_][]const u8{"doctor"};
     const result = try cli.parseArgs(allocator, &args);
-    try std.testing.expectEqual(cli.Command.context, result.command);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expect(result.provider_override == null);
-    try std.testing.expect(result.number == null);
+    try std.testing.expectEqual(false, result.quick);
 }
 
 test "parseArgs: status command" {
@@ -79,49 +79,51 @@ test "parseArgs: api GET /user" {
     try std.testing.expectEqualStrings("/user", result.path.?);
 }
 
-test "parseArgs: --provider flag before command" {
+test "parseArgs: --provider flag before doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "--provider", "gitlab", "context" };
+    const args = [_][]const u8{ "--provider", "gitlab", "doctor" };
     const result = try cli.parseArgs(allocator, &args);
-    try std.testing.expectEqual(cli.Command.context, result.command);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("gitlab", result.provider_override.?);
 }
 
-test "parseArgs: --provider flag after command" {
+test "parseArgs: --provider flag after doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "context", "--provider", "gitlab" };
+    const args = [_][]const u8{ "doctor", "--provider", "gitlab" };
     const result = try cli.parseArgs(allocator, &args);
-    try std.testing.expectEqual(cli.Command.context, result.command);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("gitlab", result.provider_override.?);
 }
 
-test "parseArgs: --provider= equals style" {
+test "parseArgs: --provider= equals style with doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "--provider=gitlab", "context" };
+    const args = [_][]const u8{ "--provider=gitlab", "doctor" };
     const result = try cli.parseArgs(allocator, &args);
-    try std.testing.expectEqual(cli.Command.context, result.command);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("gitlab", result.provider_override.?);
 }
 
-test "parseArgs: --provider-url flag" {
+test "parseArgs: --provider-url flag with doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "--provider-url", "https://git.example.com/api/v1", "context" };
+    const args = [_][]const u8{ "--provider-url", "https://git.example.com/api/v1", "doctor" };
     const result = try cli.parseArgs(allocator, &args);
-    try std.testing.expectEqual(cli.Command.context, result.command);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("https://git.example.com/api/v1", result.provider_url.?);
 }
 
-test "parseArgs: -p short flag" {
+test "parseArgs: -p short flag with doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "-p", "gitea", "context" };
+    const args = [_][]const u8{ "-p", "gitea", "doctor" };
     const result = try cli.parseArgs(allocator, &args);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("gitea", result.provider_override.?);
 }
 
-test "parseArgs: --account flag" {
+test "parseArgs: --account flag with doctor" {
     const allocator = std.testing.allocator;
-    const args = [_][]const u8{ "--account", "personal", "context" };
+    const args = [_][]const u8{ "--account", "personal", "doctor" };
     const result = try cli.parseArgs(allocator, &args);
+    try std.testing.expectEqual(cli.Command.doctor, result.command);
     try std.testing.expectEqualStrings("personal", result.account.?);
 }
 

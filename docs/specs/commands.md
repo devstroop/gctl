@@ -1,14 +1,17 @@
 # Command Reference
 
-## v0.1 — Context & Read-Only Operations
+## v0.1 — Read-Only Operations
 
 ```
-gctl context
-    Show detected provider, owner, repo, remote, token source.
-    Debugging cornerstone.
+gctl doctor [--quick]
+    Full system diagnostics.
+    Checks: git repo, remotes, provider resolution, token presence,
+    supported capabilities, API connectivity.
+    Use --quick to skip API calls for instant local-only info.
 
 gctl status
-    High-level summary: provider → owner/repo.
+    Repo pulse: open issues, open PRs, latest activity.
+    Requires a token (makes API calls to the provider).
 
 gctl repo view [owner/repo]
     Show repository details (description, stars, forks, visibility).
@@ -88,18 +91,76 @@ gctl pr merge <number>
 
 ---
 
-## v0.4 — Mirror
+## v0.4 — Cross-Provider Operations
+
+All cross-provider commands use REST-style resource paths: `[<remote>/]<type>/[<id>]`.
 
 ```
-gctl mirror list
-    List configured mirrors.
+gctl network
+    Show all remotes with provider, owner, repo, and status.
+    Built on multi-context — parses every fetch remote.
 
-gctl mirror setup <source> <target>
-    Configure a mirror between two repos/providers.
+gctl copy <source-path> <target-remote>
+    Copy a resource from the current repo to another remote.
+    Examples:
+      gctl copy issues/14 upstream
+      gctl copy prs/42 upstream
 
-gctl mirror run <name>
-    Execute a mirror sync.
+gctl diff <type> <remote>
+    Show resources present in current repo but missing on target.
+    Examples:
+      gctl diff issues upstream       # issues missing in upstream
+      gctl diff prs upstream          # PRs missing in upstream
+
+gctl export <resource-path>
+    Write a resource as JSON to stdout.
+    Examples:
+      gctl export issues/14
+      gctl export issues/             # all issues (JSON array)
+      gctl export upstream/issues/    # all issues from upstream remote
+
+gctl import <resource-path>
+    Read JSON from stdin and create a resource.
+    Examples:
+      gctl import upstream/issues/ < issue.json
 ```
+
+### Pipe Model
+
+export/import are designed as Unix filters — they read from or write to
+stdout/stdin, enabling arbitrary composition:
+
+```sh
+# Copy a resource (export piped to import internally)
+gctl copy issues/14 upstream
+
+# Equivalent manual pipe
+gctl export issues/14 | gctl import upstream/issues/
+
+# Inspect before importing
+gctl export issues/14 > issue.json
+vim issue.json
+gctl import upstream/issues/ < issue.json
+
+# Bulk copy all issues
+gctl export issues/ | gctl import upstream/issues/
+
+# Chain with jq
+gctl export issues/ | jq '.[] | {title, body}'
+```
+
+### Resource Path Resolution
+
+- Paths without a remote prefix resolve to the current context (`contexts[0]`)
+- `export` with no id (e.g., `export issues/`) lists all resources of that type
+- Remote is matched against git remote names, then against context names from config
+- Explicit remote prefix overrides current context
+
+### Capability Requirements
+
+All cross-provider operations require both source and target providers to support
+the resource type (matching vtables must be non-null). If either side doesn't
+support the type, a clear error is returned.
 
 ---
 
