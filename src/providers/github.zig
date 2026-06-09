@@ -417,7 +417,48 @@ fn prView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, re
     };
 }
 
-pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
+fn prCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.PRCreateParams) !types.PullRequestInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/pulls", .{ owner, repo });
+    defer allocator.free(path);
+
+    const body_str = params.body orelse "";
+    const json_body = try std.fmt.allocPrint(allocator, "{{\"title\":\"{s}\",\"head\":\"{s}\",\"base\":\"{s}\",\"body\":\"{s}\"}}", .{ params.title, params.head, params.base, body_str });
+    defer allocator.free(json_body);
+
+    var parsed = try apiPost(allocator, token, path, json_body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.PullRequestInfo{
+        .number = getU64(obj, "number"),
+        .title = getString(obj, "title"),
+        .state = getString(obj, "state"),
+        .author = if (obj.get("user")) |u| getString(u.object, "login") else "",
+        .draft = getBool(obj, "draft"),
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "created_at"),
+        .source_branch = if (obj.get("head")) |h| getString(h.object, "ref") else "",
+        .target_branch = if (obj.get("base")) |b| getString(b.object, "ref") else "",
+    };
+}
+
+fn prMerge(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !void {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/pulls/{d}/merge", .{ owner, repo, number });
+    defer allocator.free(path);
+
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.put(allocator, url, token, "{}");
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitHub API PUT returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+}
+
+pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView, .create = prCreate, .merge = prMerge };
 
 test {
     _ = repo_vtable;

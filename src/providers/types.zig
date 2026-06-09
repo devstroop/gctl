@@ -105,9 +105,18 @@ pub const IssueVtable = struct {
     close: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!IssueInfo,
 };
 
+pub const PRCreateParams = struct {
+    title: []const u8,
+    head: []const u8,
+    base: []const u8,
+    body: ?[]const u8 = null,
+};
+
 pub const PRVtable = struct {
     list: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror![]PullRequestInfo,
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!PullRequestInfo,
+    create: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: PRCreateParams) anyerror!PullRequestInfo,
+    merge: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) anyerror!void,
 };
 
 pub const LabelVtable = struct {

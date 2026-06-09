@@ -13,6 +13,8 @@ pub const Command = enum {
     issue_close,
     issue_list,
     issue_view,
+    pr_create,
+    pr_merge,
     pr_list,
     pr_view,
     api,
@@ -33,6 +35,7 @@ pub const ParsedArgs = struct {
     private: bool = false,
     labels: ?[]const u8 = null,
     title: ?[]const u8 = null,
+    base: ?[]const u8 = null,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -56,7 +59,7 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
         if ((std.mem.eql(u8, a, "--provider") or std.mem.eql(u8, a, "-p") or
             std.mem.eql(u8, a, "--account") or std.mem.eql(u8, a, "-a") or
             std.mem.eql(u8, a, "--provider-url") or std.mem.eql(u8, a, "-u") or
-            std.mem.eql(u8, a, "--description")) and
+            std.mem.eql(u8, a, "--description") or std.mem.eql(u8, a, "--base")) and
             cmd_start + 1 < args.len and !std.mem.startsWith(u8, args[cmd_start + 1], "-"))
         {
             cmd_start += 1; // skip the value too
@@ -117,6 +120,11 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
             if (i < args.len) {
                 result.description = args[i];
             }
+        } else if (std.mem.eql(u8, arg, "--base")) {
+            i += 1;
+            if (i < args.len) {
+                result.base = args[i];
+            }
         } else if (std.mem.eql(u8, arg, "--private")) {
             result.private = true;
         } else if (std.mem.eql(u8, arg, "--no-private")) {
@@ -133,8 +141,11 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                 .issue_view, .issue_close => {
                     result.number = std.fmt.parseUnsigned(u64, arg, 10) catch null;
                 },
-                .pr_view => {
+                .pr_view, .pr_merge => {
                     result.number = std.fmt.parseUnsigned(u64, arg, 10) catch null;
+                },
+                .pr_create => {
+                    result.title = arg;
                 },
                 .issue_create => {
                     result.title = arg;
@@ -188,6 +199,8 @@ pub fn printHelp(writer: anytype) !void {
         \\  issue close <number>   Close an issue
         \\  issue list             List open issues
         \\  issue view <number>    View an issue
+        \\  pr create <title>      Create a pull/merge request
+        \\  pr merge <number>      Merge a pull/merge request
         \\  pr list                List open pull/merge requests
         \\  pr view <number>       View a pull/merge request
         \\  api <method> <path>    Direct API call
@@ -198,6 +211,7 @@ pub fn printHelp(writer: anytype) !void {
         \\  --account, -a <name>      Override account
         \\  --description <text>      Repo description (repo create)
         \\  --private                 Make repo private (repo create)
+        \\  --base <branch>           Target branch (pr create, default: main)
         \\  --help, -h                Show this help
         \\
         \\Environment:

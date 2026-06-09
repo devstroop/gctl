@@ -69,6 +69,7 @@ pub fn execute(
     private: bool,
     labels: ?[]const u8,
     title: ?[]const u8,
+    base: ?[]const u8,
 ) !void {
     const provider = getProvider(ctx.provider);
     if (provider == null) {
@@ -100,6 +101,8 @@ pub fn execute(
         .issue_close => try execIssueClose(allocator, stdout, stderr, p, t, ctx, number),
         .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx),
         .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number),
+        .pr_create => try execPRCreate(allocator, stdout, stderr, p, t, ctx, title, base),
+        .pr_merge => try execPRMerge(allocator, stdout, stderr, p, t, ctx, number),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
         .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number),
         .api => try stderr.interface.print("TODO: api command\n", .{}),
@@ -372,6 +375,73 @@ fn execPRView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, pr
             .{ "Created", info.created_at },
         }, false);
         _ = draft;
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn getCurrentBranch(allocator: std.mem.Allocator) ![]const u8 {
+    var child = std.process.Child.init(&.{ "git", "rev-parse", "--abbrev-ref", "HEAD" }, allocator);
+    child.stdout_behavior = .Pipe;
+    child.stderr_behavior = .Ignore;
+    try child.spawn();
+
+    const output = try child.stdout.?.readToEndAlloc(allocator, 256);
+    defer allocator.free(output);
+
+    _ = try child.wait();
+
+    return std.mem.trim(u8, output, " \n\r");
+}
+
+fn execPRCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8, base: ?[]const u8) !void {
+    if (provider.prs) |prs| {
+        const pr_title = title orelse {
+            try stderr.interface.print("error: pr create requires a title\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+
+        const head = getCurrentBranch(allocator) catch |err| {
+            try stderr.interface.print("error: could not detect current branch: {}\n", .{err});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        defer allocator.free(head);
+
+        const base_branch = base orelse "main";
+        const params = types.PRCreateParams{
+            .title = pr_title,
+            .head = head,
+            .base = base_branch,
+        };
+        const info = try prs.create(allocator, token, ctx.owner, ctx.repo, params);
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Number", try std.fmt.allocPrint(allocator, "{d}", .{info.number}) },
+            .{ "Title", info.title },
+            .{ "State", info.state },
+            .{ "URL", info.url },
+            .{ "From", info.source_branch },
+            .{ "To", info.target_branch },
+        }, false);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execPRMerge(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+    if (provider.prs) |prs| {
+        const num = number orelse {
+            try stderr.interface.print("error: pr merge requires a PR number\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        try prs.merge(allocator, token, ctx.owner, ctx.repo, num);
+        try stdout.interface.print("Merged #{d} on {s}/{s}\n", .{ num, ctx.owner, ctx.repo });
         return;
     }
     try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
