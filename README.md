@@ -31,7 +31,7 @@ cd ~/work/backend          # gitlab.company.com remote
 gitctl pr list               # → GitLab merge requests
 
 gitctl repo view             # details from whatever provider
-gitctl context               # debug what was detected
+gitctl network               # debug what was detected
 
 gitctl api GET /user         # raw API escape hatch
 ```
@@ -62,9 +62,12 @@ export GITLAB_TOKEN=glpat-xxxxxxxxxxxx
 
 ```sh
 cd any-git-repo
-gitctl context         # see what it detected
+gitctl network         # see all remotes detected
+gitctl doctor          # system diagnostics
 gitctl issue list      # list open issues
 gitctl pr view 42      # view a PR / merge request
+gitctl run list        # list CI/CD runs
+gitctl --json          # machine-readable output
 ```
 
 ---
@@ -73,7 +76,8 @@ gitctl pr view 42      # view a PR / merge request
 
 | Command | Description |
 |---------|-------------|
-| `gitctl context [--all]` | Show detected provider, owner, repo, remote |
+| `gitctl doctor [--quick]` | System diagnostics |
+| `gitctl network [--all]` | Show all remotes with provider, owner, repo |
 | `gitctl status` | High-level repo summary |
 | `gitctl repo view [owner/repo]` | View repository details |
 | `gitctl repo create <name>` | Create a repository |
@@ -88,7 +92,22 @@ gitctl pr view 42      # view a PR / merge request
 | `gitctl pr merge <n>` | Merge a pull/merge request |
 | `gitctl pr list` | List open pull/merge requests |
 | `gitctl pr view <n>` | View a pull/merge request |
+| `gitctl release list` | List releases |
+| `gitctl release view <tag>` | View a release |
+| `gitctl release create <tag>` | Create a release |
+| `gitctl run list` | List CI/CD runs |
+| `gitctl run view <id>` | View a CI/CD run |
+| `gitctl run rerun <id>` | Rerun a CI/CD run |
+| `gitctl export <path>` | Export resource as JSON |
+| `gitctl import <path>` | Create resource from JSON |
+| `gitctl copy <src> <tgt>` | Copy resource across remotes |
+| `gitctl diff <src> <tgt>` | Compare resource across remotes |
 | `gitctl api <method> <path>` | Direct API call |
+| `gitctl auth login <provider>` | Store a token |
+| `gitctl auth logout <provider>` | Remove stored token |
+| `gitctl auth list` | Show configured accounts |
+| `gitctl auth status` | Show auth context |
+| `gitctl completion bash\|zsh\|fish` | Generate shell completions |
 
 ---
 
@@ -96,10 +115,10 @@ gitctl pr view 42      # view a PR / merge request
 
 | Provider | Status | Auth |
 |----------|--------|------|
-| GitHub | ✅ | Token (env var) |
-| GitLab (incl. self-hosted) | ✅ | Token (env var) |
-| Gitea / Forgejo | 🔲 | Planned |
-| Custom | ✅ | Token (env var) |
+| GitHub | ✅ | Token (env var / keychain) |
+| GitLab (incl. self-hosted) | ✅ | Token (env var / keychain) |
+| Gitea / Forgejo | ✅ | Token (env var / keychain) |
+| Custom | ✅ | Token (env var / keychain) |
 | Bitbucket | 🔲 | Planned |
 
 ---
@@ -107,9 +126,9 @@ gitctl pr view 42      # view a PR / merge request
 ## How It Works
 
 1. **Reads your git remote** — `git remote -v` → `github.com` → GitHub provider
-2. **Finds your token** — Checks `GITHUB_TOKEN` / `GITLAB_TOKEN` env vars
+2. **Finds your token** — Checks `GITHUB_TOKEN` / `GITLAB_TOKEN` / `GITEA_TOKEN` env vars, then system keychain
 3. **Calls the API** — Provider maps `gitctl` commands to REST API calls
-4. **Shows the result** — Formatted table or key-value output
+4. **Shows the result** — Formatted table or key-value output (use `--json` for machine-readable)
 
 No magic. Just git remotes, HTTP, and JSON.
 
