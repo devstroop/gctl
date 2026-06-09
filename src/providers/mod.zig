@@ -18,7 +18,7 @@ const providers = [_]types.Provider{
         .prs = github.pr_vtable,
         .labels = github.label_vtable,
         .releases = github.release_vtable,
-        .pipelines = null, // v0.5
+        .pipelines = github.pipeline_vtable,
     },
     .{
         .name = "gitlab",
@@ -134,6 +134,9 @@ pub fn execute(
         .release_list => try execReleaseList(allocator, stdout, stderr, p, t, ctx, json),
         .release_view => try execReleaseView(allocator, stdout, stderr, p, t, ctx, name, json),
         .release_create => try execReleaseCreate(allocator, stdout, stderr, p, t, ctx, name, description, private, json),
+        .run_list => try execRunList(allocator, stdout, stderr, p, t, ctx, json),
+        .run_view => try execRunView(allocator, stdout, stderr, p, t, ctx, number, json),
+        .run_rerun => try execRunRerun(allocator, stdout, stderr, p, t, ctx, number, json),
         .@"export" => unreachable,
         .import => unreachable,
         .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target, json),
@@ -1128,6 +1131,95 @@ fn execReleaseCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anyt
         return;
     }
     try stderr.interface.print("error: {s} does not support releases.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+// ── CI/CD Runs ──────────────────────────────────────────────────────────────
+
+fn execRunList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, json: bool) !void {
+    if (provider.pipelines) |pipelines| {
+        const list = try pipelines.list(allocator, token, ctx.owner, ctx.repo);
+        defer {
+            for (list) |r| {
+                allocator.free(r.name);
+                allocator.free(r.status);
+                allocator.free(r.conclusion);
+                allocator.free(r.branch);
+                allocator.free(r.url);
+                allocator.free(r.created_at);
+            }
+            allocator.free(list);
+        }
+
+        const headers = [_][]const u8{ "ID", "Name", "Branch", "Status", "Conclusion", "URL" };
+        var rows = try std.ArrayList([]const []const u8).initCapacity(allocator, list.len);
+        defer rows.deinit(allocator);
+        for (list) |r| {
+            const id_str = try std.fmt.allocPrint(allocator, "{d}", .{r.id});
+            defer allocator.free(id_str);
+            const row = [_][]const u8{
+                id_str,
+                r.name,
+                r.branch,
+                r.status,
+                r.conclusion,
+                r.url,
+            };
+            try rows.append(allocator, &row);
+        }
+        try cli.output.printTable(stdout, &headers, rows.items, json);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support CI/CD pipelines.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execRunView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, json: bool) !void {
+    if (provider.pipelines) |pipelines| {
+        const num = number orelse {
+            try stderr.interface.print("error: run view requires a run ID\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const info = try pipelines.view(allocator, token, ctx.owner, ctx.repo, num);
+        defer {
+            allocator.free(info.name);
+            allocator.free(info.status);
+            allocator.free(info.conclusion);
+            allocator.free(info.branch);
+            allocator.free(info.url);
+            allocator.free(info.created_at);
+        }
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "ID", try std.fmt.allocPrint(allocator, "{d}", .{info.id}) },
+            .{ "Name", info.name },
+            .{ "Branch", info.branch },
+            .{ "Status", info.status },
+            .{ "Conclusion", info.conclusion },
+            .{ "URL", info.url },
+            .{ "Created", info.created_at },
+        }, json);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support CI/CD pipelines.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execRunRerun(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, _: bool) !void {
+    if (provider.pipelines) |pipelines| {
+        const num = number orelse {
+            try stderr.interface.print("error: run rerun requires a run ID\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        try pipelines.rerun(allocator, token, ctx.owner, ctx.repo, num);
+        try stdout.interface.print("Rerunning #{d} on {s}/{s}\n", .{ num, ctx.owner, ctx.repo });
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support CI/CD pipelines.\n", .{provider.name});
     stderr.end() catch {};
     std.process.exit(1);
 }

@@ -141,6 +141,7 @@ pub const ReleaseVtable = struct {
 pub const PipelineVtable = struct {
     list: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror![]RunInfo,
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, id: u64) anyerror!RunInfo,
+    rerun: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, id: u64) anyerror!void,
 };
 
 // ── Provider descriptor ─────────────────────────────────────────────────────
