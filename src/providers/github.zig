@@ -462,9 +462,92 @@ fn prMerge(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, r
 
 pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView, .create = prCreate, .merge = prMerge };
 
+// ── Releases ────────────────────────────────────────────────────────────────
+
+fn releaseList(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) ![]types.ReleaseInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/releases?per_page=30", .{ owner, repo });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const arr = parsed.value.array.items;
+    var list = try std.ArrayList(types.ReleaseInfo).initCapacity(allocator, arr.len);
+
+    for (arr) |item| {
+        const obj = item.object;
+        try list.append(allocator, types.ReleaseInfo{
+            .tag_name = getString(obj, "tag_name"),
+            .name = getString(obj, "name"),
+            .body = getString(obj, "body"),
+            .draft = getBool(obj, "draft"),
+            .prerelease = getBool(obj, "prerelease"),
+            .url = getString(obj, "html_url"),
+            .created_at = getString(obj, "published_at"),
+        });
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
+fn releaseView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, tag: []const u8) !types.ReleaseInfo {
+    const encoded = try encodeLabel(allocator, tag);
+    defer allocator.free(encoded);
+
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/releases/tags/{s}", .{ owner, repo, encoded });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.ReleaseInfo{
+        .tag_name = getString(obj, "tag_name"),
+        .name = getString(obj, "name"),
+        .body = getString(obj, "body"),
+        .draft = getBool(obj, "draft"),
+        .prerelease = getBool(obj, "prerelease"),
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "published_at"),
+    };
+}
+
+fn releaseCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.ReleaseCreateParams) !types.ReleaseInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/releases", .{ owner, repo });
+    defer allocator.free(path);
+
+    const name_str = params.name orelse "";
+    const body_str = params.body orelse "";
+    const json_body = try std.fmt.allocPrint(allocator, "{{\"tag_name\":\"{s}\",\"name\":\"{s}\",\"body\":\"{s}\",\"draft\":{s},\"prerelease\":{s}}}", .{
+        params.tag_name,
+        name_str,
+        body_str,
+        if (params.draft) "true" else "false",
+        if (params.prerelease) "true" else "false",
+    });
+    defer allocator.free(json_body);
+
+    var parsed = try apiPost(allocator, token, path, json_body);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.ReleaseInfo{
+        .tag_name = getString(obj, "tag_name"),
+        .name = getString(obj, "name"),
+        .body = getString(obj, "body"),
+        .draft = getBool(obj, "draft"),
+        .prerelease = getBool(obj, "prerelease"),
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "published_at"),
+    };
+}
+
+pub const release_vtable: types.ReleaseVtable = .{ .list = releaseList, .view = releaseView, .create = releaseCreate };
+
 test {
     _ = repo_vtable;
     _ = issue_vtable;
     _ = pr_vtable;
     _ = label_vtable;
+    _ = release_vtable;
 }
