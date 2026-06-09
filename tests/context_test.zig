@@ -110,8 +110,9 @@ test "parseRemote: unknown SSH URL returns null" {
 test "resolve: auto-detection from git remote" {
     const allocator = std.testing.allocator;
 
-    var result = context.resolve(allocator, null, null) catch return;
-    defer result.deinit(allocator);
-    try std.testing.expect(result.remote_name.len > 0);
-    try std.testing.expect(result.remote_url.len > 0);
+    const result = context.resolve(allocator, null, null) catch return;
+    defer context.contextsDeinit(result, allocator);
+    try std.testing.expect(result.len > 0);
+    try std.testing.expect(result[0].remote_name.len > 0);
+    try std.testing.expect(result[0].remote_url.len > 0);
 }
