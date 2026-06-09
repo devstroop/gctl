@@ -28,14 +28,21 @@ jobs:
           ARCHIVE="gctl-${GITHUB_REF_NAME}-${{ matrix.target }}"
           case "${{ matrix.target }}" in
             *-windows)
-              cp zig-out/bin/gctl.exe "${ARCHIVE}.exe"
-              zip "${ARCHIVE}.zip" "${ARCHIVE}.exe"
-              rm "${ARCHIVE}.exe"
+              cp zig-out/bin/gctl.exe gctl.exe
+              zip "${ARCHIVE}.zip" gctl.exe
+              rm gctl.exe
               ;;
             *)
               tar czf "${ARCHIVE}.tar.gz" -C zig-out/bin gctl
               ;;
           esac
+      - name: Stage install scripts
+        run: |
+          cp scripts/install.sh scripts/install.ps1 .
       - uses: softprops/action-gh-release@v2
         with:
-          files: gctl-*
+          files: |
+            gctl-*
+            install.sh
+            install.ps1
+          overwrite_files: true
