@@ -1,7 +1,7 @@
 const std = @import("std");
 const types = @import("types.zig");
 
-// Gitea/Forgejo provider — v0.4
+// Gitea/Forgejo provider
 // All vtables are null for now.
 
 pub const repo_vtable: ?types.RepoVtable = null;

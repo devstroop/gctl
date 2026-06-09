@@ -17,7 +17,7 @@ const providers = [_]types.Provider{
         .issues = github.issue_vtable,
         .prs = github.pr_vtable,
         .labels = github.label_vtable,
-        .releases = null, // v0.4
+        .releases = null,
         .pipelines = null, // v0.5
     },
     .{
@@ -30,10 +30,10 @@ const providers = [_]types.Provider{
     .{
         .name = "gitea",
         .base_url = "https://gitea.com/api/v1",
-        .repos = null, // v0.4
-        .issues = null, // v0.4
-        .prs = null, // v0.4
-        .releases = null, // v0.4
+        .repos = null,
+        .issues = null,
+        .prs = null,
+        .releases = null,
         .pipelines = null, // always null for Gitea
     },
     .{
