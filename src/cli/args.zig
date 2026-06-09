@@ -25,6 +25,9 @@ pub const Command = enum {
     release_list,
     release_view,
     release_create,
+    run_list,
+    run_view,
+    run_rerun,
     api,
     auth_login,
     auth_logout,
@@ -168,6 +171,9 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                 .pr_view, .pr_merge => {
                     result.number = std.fmt.parseUnsigned(u64, arg, 10) catch null;
                 },
+                .run_view, .run_rerun => {
+                    result.number = std.fmt.parseUnsigned(u64, arg, 10) catch null;
+                },
                 .pr_create => {
                     result.title = arg;
                 },
@@ -258,6 +264,9 @@ pub fn printHelp(writer: anytype) !void {
         \\  release list           List releases
         \\  release view <tag>     View a release
         \\  release create <tag>   Create a release
+        \\  run list               List CI/CD runs
+        \\  run view <id>          View a CI/CD run
+        \\  run rerun <id>         Rerun a CI/CD run
         \\  api <method> <path>    Direct API call
         \\  export <resource-path>  Write resource as JSON to stdout
         \\  import <resource-path>  Create resource from JSON on stdin

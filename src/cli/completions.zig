@@ -8,8 +8,8 @@ pub fn completeBash(writer: anytype) !void {
         \\  local cur prev words cword
         \\  _init_completion || return
         \\
-        \\  local commands="doctor network status repo label issue pr release api export import copy diff auth"
-        \\  local subcommands="view create delete archive set_all list close merge"
+        \\  local commands="doctor network status repo label issue pr release run api export import copy diff auth"
+        \\  local subcommands="view create delete archive set_all list close merge rerun"
         \\  local flags="--provider -p --provider-url -u --account -a --description --private --base --json -j --help -h --all --quick"
         \\
         \\  if [[ $cword -eq 1 ]]; then
@@ -42,6 +42,13 @@ pub fn completeBash(writer: anytype) !void {
         \\    release)
         \\      if [[ $cword -eq 2 ]]; then
         \\        COMPREPLY=($(compgen -W "list view create" -- "$cur"))
+        \\      else
+        \\        COMPREPLY=($(compgen -W "$flags" -- "$cur"))
+        \\      fi
+        \\      ;;
+        \\    run)
+        \\      if [[ $cword -eq 2 ]]; then
+        \\        COMPREPLY=($(compgen -W "list view rerun" -- "$cur"))
         \\      else
         \\        COMPREPLY=($(compgen -W "$flags" -- "$cur"))
         \\      fi
@@ -85,6 +92,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\    'issue:Issue operations'
         \\    'pr:Pull/merge request operations'
         \\    'release:Release operations'
+        \\    'run:CI/CD pipeline operations'
         \\    'api:Direct API call'
         \\    'export:Export resource as JSON'
         \\    'import:Import resource from JSON'
@@ -97,6 +105,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\  local -a issue_ops=(list view create close)
         \\  local -a pr_ops=(list view create merge)
         \\  local -a release_ops=(list view create)
+        \\  local -a run_ops=(list view rerun)
         \\  local -a label_ops=(set_all)
         \\  local -a auth_ops=(login logout list status)
         \\  local -a global_flags=(
@@ -128,6 +137,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\    issue) _describe 'subcommand' issue_ops; _arguments $global_flags ;;
         \\    pr)    _describe 'subcommand' pr_ops; _arguments $global_flags ;;
         \\    release) _describe 'subcommand' release_ops; _arguments $global_flags ;;
+        \\    run)    _describe 'subcommand' run_ops; _arguments $global_flags ;;
         \\    label) _describe 'subcommand' label_ops; _arguments $global_flags ;;
         \\    auth)  _describe 'subcommand' auth_ops; _arguments $global_flags ;;
         \\    *)     _arguments $global_flags ;;
@@ -144,15 +154,16 @@ pub fn completeFish(writer: anytype) !void {
         \\complete -c gitctl -f
         \\
         \\# Commands
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a doctor -d "System diagnostics"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a network -d "Show all remotes"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a status -d "Repo pulse"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a repo -d "Repository operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a label -d "Label operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a issue -d "Issue operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a pr -d "Pull/merge request operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a release -d "Release operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a api -d "Direct API call"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a doctor -d "System diagnostics"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a network -d "Show all remotes"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a status -d "Repo pulse"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a repo -d "Repository operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a label -d "Label operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a issue -d "Issue operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a pr -d "Pull/merge request operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a release -d "Release operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a run -d "CI/CD pipeline operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release run api export import copy diff auth" -a api -d "Direct API call"
         \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a export -d "Export resource as JSON"
         \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a import -d "Import resource from JSON"
         \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a copy -d "Copy resource across remotes"
@@ -181,6 +192,11 @@ pub fn completeFish(writer: anytype) !void {
         \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "list" -d "List releases"
         \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "view" -d "View release"
         \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "create" -d "Create release"
+        \\
+        \\# Run subcommands
+        \\complete -c gitctl -n "__fish_seen_subcommand_from run" -a "list" -d "List CI/CD runs"
+        \\complete -c gitctl -n "__fish_seen_subcommand_from run" -a "view" -d "View CI/CD run"
+        \\complete -c gitctl -n "__fish_seen_subcommand_from run" -a "rerun" -d "Rerun CI/CD run"
         \\
         \\# Label subcommands
         \\complete -c gitctl -n "__fish_seen_subcommand_from label" -a "set_all" -d "Replace all repo labels"

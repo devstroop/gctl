@@ -544,10 +544,76 @@ fn releaseCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const
 
 pub const release_vtable: types.ReleaseVtable = .{ .list = releaseList, .view = releaseView, .create = releaseCreate };
 
+// ── CI/CD (GitHub Actions) ─────────────────────────────────────────────────
+
+fn runList(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) ![]types.RunInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/actions/runs?per_page=30", .{ owner, repo });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const arr = parsed.value.object.get("workflow_runs").?.array.items;
+    var list = try std.ArrayList(types.RunInfo).initCapacity(allocator, arr.len);
+
+    for (arr) |item| {
+        const obj = item.object;
+        try list.append(allocator, types.RunInfo{
+            .id = getU64(obj, "id"),
+            .name = getString(obj, "name"),
+            .status = getString(obj, "status"),
+            .conclusion = getString(obj, "conclusion"),
+            .branch = if (obj.get("head_branch")) |b| b.string else "",
+            .url = getString(obj, "html_url"),
+            .created_at = getString(obj, "created_at"),
+        });
+    }
+
+    return list.toOwnedSlice(allocator);
+}
+
+fn runView(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, id: u64) !types.RunInfo {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/actions/runs/{d}", .{ owner, repo, id });
+    defer allocator.free(path);
+
+    var parsed = try apiGet(allocator, token, path);
+    defer parsed.deinit();
+
+    const obj = parsed.value.object;
+    return types.RunInfo{
+        .id = getU64(obj, "id"),
+        .name = getString(obj, "name"),
+        .status = getString(obj, "status"),
+        .conclusion = getString(obj, "conclusion"),
+        .branch = if (obj.get("head_branch")) |b| b.string else "",
+        .url = getString(obj, "html_url"),
+        .created_at = getString(obj, "created_at"),
+    };
+}
+
+fn runRerun(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, id: u64) !void {
+    const path = try std.fmt.allocPrint(allocator, "/repos/{s}/{s}/actions/runs/{d}/rerun", .{ owner, repo, id });
+    defer allocator.free(path);
+
+    const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
+    defer allocator.free(url);
+
+    const resp = try http.client.postAccept(allocator, url, token, "{}", GITHUB_ACCEPT);
+    defer allocator.free(resp.body);
+
+    if (resp.status < 200 or resp.status >= 300) {
+        std.log.err("GitHub API POST returned {d}: {s}", .{ resp.status, resp.body });
+        return error.HttpError;
+    }
+}
+
+pub const pipeline_vtable: types.PipelineVtable = .{ .list = runList, .view = runView, .rerun = runRerun };
+
 test {
     _ = repo_vtable;
     _ = issue_vtable;
     _ = pr_vtable;
     _ = label_vtable;
     _ = release_vtable;
+    _ = pipeline_vtable;
 }
