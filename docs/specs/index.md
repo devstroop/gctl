@@ -16,7 +16,7 @@ The core strength is **context detection**: `cd anywhere && gctl status` instant
 | Document | Description |
 |----------|-------------|
 | [Architecture](./architecture.md) | Capability-driven provider model, resolution chain, token resolution, directory structure |
-| [Commands](./commands.md) | Complete command reference (v0.1–v1.0) |
+| [Commands](./commands.md) | Complete command reference |
 | [Providers](./providers.md) | Provider-specific API endpoint mappings |
 | [Config](./config.md) | Config file schema and account management |
 | [Error Handling](./error-handling.md) | Error taxonomy, user-facing messages |

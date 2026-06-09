@@ -1,6 +1,6 @@
 # Command Reference
 
-## v0.1 — Read-Only Operations
+## Read-Only Operations
 
 ```
 gctl doctor [--quick]
@@ -33,7 +33,7 @@ gctl api <method> <path>
     Example: gctl api GET /user
 ```
 
-### Custom Provider Usage (v0.1+)
+### Custom Provider Usage
 
 ```sh
 # Point at any Git forge with a REST API
@@ -50,14 +50,14 @@ Custom providers have all capabilities set to `null` — use `gctl api` as an es
 
 ---
 
-## v0.2 — GitLab
+## GitLab Support
 
-All v0.1 commands, plus GitLab support via `GITLAB_TOKEN`.
+All read-only/write operations, plus GitLab support via `GITLAB_TOKEN`.
 `gctl pr` commands map to GitLab merge requests automatically.
 
 ---
 
-## v0.3 — Write Operations
+## Write Operations
 
 ```
 gctl repo create <name>
@@ -91,7 +91,7 @@ gctl pr merge <number>
 
 ---
 
-## v0.4 — Cross-Provider Operations
+## Cross-Provider Operations
 
 All cross-provider commands use REST-style resource paths: `[<remote>/]<type>/[<id>]`.
 
@@ -165,7 +165,7 @@ support the type, a clear error is returned.
 
 ---
 
-## v1.0 — Persistent Auth
+## Persistent Auth (planned)
 
 ```
 gctl auth login <provider>

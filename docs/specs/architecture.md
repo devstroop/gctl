@@ -17,7 +17,7 @@ A provider without a capability sets its vtable to `null`. The command dispatch 
 
 The `custom` provider ships with all capabilities set to `null` — users provide their own API via `--provider-url`. This enables working with any Git forge that has a REST API.
 
-**Vtable philosophy**: Start with 3 vtables (repos, issues, prs). Add labels in v0.3. Do NOT add releases, pipelines, or other vtables until a real user workflow demands them. Use `gctl api` as the escape hatch for unsupported operations.
+**Vtable philosophy**: Start with 3 vtables (repos, issues, prs). Add labels when needed. Do NOT add releases, pipelines, or other vtables until a real user workflow demands them. Use `gctl api` as the escape hatch for unsupported operations.
 
 ### RepoVtable
 
@@ -62,7 +62,7 @@ pub const LabelVtable = struct {
 
 ---
 
-## Cross-Provider Operations (v0.4+)
+## Cross-Provider Operations
 
 Cross-provider operations work between any two resolved contexts, even across different providers (GitHub → GitLab).
 
@@ -158,7 +158,7 @@ For every command, the context engine resolves:
 3. **Config fallback**: `defaults.provider` from `~/.gctl/config.json`
 4. **Error**: "No provider detected. Run `gctl doctor --quick` to debug."
 
-### Multi-Context Resolution (v0.3+)
+### Multi-Context Resolution
 
 All git remotes are parsed, not just the first. The resolver returns a slice of contexts:
 
@@ -183,10 +183,10 @@ Custom provider detection:
 Tokens are resolved in priority order:
 
 1. **Environment variables**: `GITHUB_TOKEN`, `GITLAB_TOKEN`, `TOKEN` (generic fallback)
-2. **OS keychain**: macOS Keychain, Linux Secret Service (v1.0+)
-3. **Encrypted config file**: AES-encrypted fallback (v1.0+)
+2. **OS keychain**: macOS Keychain, Linux Secret Service (planned)
 
-v0.1–v0.5 use env vars exclusively. Token env var mapping:
+3. **Encrypted config file**: AES-encrypted fallback (planned)
+Pre-keychain token resolution uses env vars exclusively. Token env var mapping:
 
 | Provider | Env Var |
 |----------|---------|
@@ -236,8 +236,8 @@ gctl/
 │   ├── auth/
 │   │   ├── mod.zig            # Token resolution: env vars → config → keychain
 │   │   ├── env.zig            # Provider token env var support
-│   │   ├── keychain.zig       # Stub — macOS security / Linux secret-tool (v1.0+)
-│   │   └── oauth.zig          # Stub — GitHub device flow (v1.0+)
+│   │   ├── keychain.zig       # Stub — macOS security / Linux secret-tool (planned)
+│   │   └── oauth.zig          # Stub — GitHub device flow (planned)
 │   └── http/
 │       ├── mod.zig            # HTTP module root
 │       └── client.zig         # std.http.Client wrapper: GET, POST, PATCH, DELETE

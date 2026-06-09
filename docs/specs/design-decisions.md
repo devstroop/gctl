@@ -11,7 +11,7 @@
 | 7 | **`gctl api` as escape hatch** | Direct API access prevents abstraction leaks from blocking users. |
 | 8 | **Multi-context from v0.3** | All git remotes are parsed, not just the first. Unlocks cross-provider operations (mirror, move, export). Single-ctx implied by default. |
 | 9 | **Flat accounts array** | Multi-account-per-provider from day 1. Simpler than nested provider config. |
-| 10 | **Compact roadmap** | Ship v0.1→v0.4 sequentially. Defer everything to v1.0+ until users prove need. |
+| 10 | **Build what's needed** | All features land in main as ready. No version gating — ship when implemented. |
 | 11 | **Bitbucket deferred** | CLI-heavy developer usage too small to justify API complexity. |
 | 12 | **Shell out for git & keychain** | `git` CLI, `security` (macOS) / `secret-tool` (Linux). No libgit2 or pure-Zig keychain libraries. Premature to bind to C libs. |
 | 13 | **Flags anywhere** | `--provider` and other flags work before or after the command for maximum UX flexibility. |
@@ -23,12 +23,6 @@
 | 19 | **REST-style resource paths** | `issues/14` not `issue 14`. Matches how the underlying APIs address resources. Type is a path segment, not a CLI verb — adding a new type requires no CLI changes. |
 | 20 | **export/import as Unix filters** | stdout/stdin JSON interchange enables pipe composition (`export | import`, `export > file`, `cat file | import`). Not just an internal mechanism. |
 
-## Roadmap
+## Status
 
-| Version | Scope | Status |
-|---------|-------|--------|
-| v0.1 | GitHub, context, env tokens, custom provider, tests, config | ✅ Done |
-| v0.2 | GitLab support (repos, issues, merge requests) | ✅ Done |
-| v0.3 | Repo create/delete/archive, label set_all, issue create/close, pr create/merge, multi-context | ✅ Done |
-| v0.4 | Cross-provider ops: `gctl network`, `copy`, `diff`, `export`, `import`. REST paths, Unix pipe model | 🔄 In progress |
-| v1.0 | Persistent auth (keychain + OAuth), auth commands | ⏳ Planned |
+All work targets a single `v1.0.0` release. Features land in `main` as they're implemented. No intermediate version milestones.
