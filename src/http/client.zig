@@ -78,9 +78,15 @@ pub fn delete(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8)
     return request(allocator, .DELETE, url, token, null);
 }
 
+/// Make an HTTP PUT request.
+pub fn put(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8) !Response {
+    return request(allocator, .PUT, url, token, body);
+}
+
 test {
     _ = get;
     _ = post;
     _ = patch;
     _ = delete;
+    _ = put;
 }

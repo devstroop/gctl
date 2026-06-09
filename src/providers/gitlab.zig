@@ -252,7 +252,26 @@ fn issueClose(allocator: std.mem.Allocator, token: []const u8, owner: []const u8
 }
 
 pub const issue_vtable: types.IssueVtable = .{ .list = issueList, .view = issueView, .create = issueCreate, .close = issueClose };
-pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView };
+
+fn prCreate(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.PRCreateParams) !types.PullRequestInfo {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = params;
+    return error.NotSupported;
+}
+
+fn prMerge(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, number: u64) !void {
+    _ = allocator;
+    _ = token;
+    _ = owner;
+    _ = repo;
+    _ = number;
+    return error.NotSupported;
+}
+
+pub const pr_vtable: types.PRVtable = .{ .list = prList, .view = prView, .create = prCreate, .merge = prMerge };
 
 fn labelSetAll(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: types.LabelParams) !void {
     _ = allocator;
