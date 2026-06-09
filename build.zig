@@ -114,7 +114,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // Integration test files
-    const test_files = [_][]const u8{ "context_test", "cli_test", "github_test", "gitlab_test" };
+    const test_files = [_][]const u8{ "context_test", "cli_test", "github_test", "gitlab_test", "gitea_test", "auth_test" };
     for (test_files) |name| {
         const test_path = b.fmt("tests/{s}.zig", .{name});
         const test_exe = b.addTest(.{
@@ -126,6 +126,7 @@ pub fn build(b: *std.Build) void {
                     .{ .name = "context", .module = context_mod },
                     .{ .name = "cli", .module = cli_mod },
                     .{ .name = "providers", .module = providers_mod },
+                    .{ .name = "auth", .module = auth_mod },
                 },
             }),
         });
