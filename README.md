@@ -73,11 +73,19 @@ gctl pr view 42      # view a PR / merge request
 
 | Command | Description |
 |---------|-------------|
-| `gctl context` | Show detected provider, owner, repo, remote |
+| `gctl context [--all]` | Show detected provider, owner, repo, remote |
 | `gctl status` | High-level repo summary |
-| `gctl repo view` | View repository details |
+| `gctl repo view [owner/repo]` | View repository details |
+| `gctl repo create <name>` | Create a repository |
+| `gctl repo delete <name>` | Delete a repository |
+| `gctl repo archive <name>` | Archive a repository |
+| `gctl label set_all <labels>` | Replace all repo labels |
+| `gctl issue create <title>` | Create an issue |
+| `gctl issue close <n>` | Close an issue |
 | `gctl issue list` | List open issues |
 | `gctl issue view <n>` | View an issue |
+| `gctl pr create <title>` | Create a pull/merge request |
+| `gctl pr merge <n>` | Merge a pull/merge request |
 | `gctl pr list` | List open pull/merge requests |
 | `gctl pr view <n>` | View a pull/merge request |
 | `gctl api <method> <path>` | Direct API call |
@@ -90,8 +98,9 @@ gctl pr view 42      # view a PR / merge request
 |----------|--------|------|
 | GitHub | ✅ | Token (env var) |
 | GitLab (incl. self-hosted) | ✅ | Token (env var) |
-| Gitea / Forgejo | 🔲 | Planned if users need |
-| Bitbucket | ❌ | Not planned |
+| Gitea / Forgejo | 🔲 | Planned |
+| Custom | ✅ | Token (env var) |
+| Bitbucket | 🔲 | Planned |
 
 ---
 
