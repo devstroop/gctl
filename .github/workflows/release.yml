@@ -15,6 +15,7 @@ jobs:
           - aarch64-linux
           - x86_64-macos
           - aarch64-macos
+          - x86_64-windows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -22,6 +23,19 @@ jobs:
         with:
           version: 0.15.0
       - run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
+      - name: Package archive
+        run: |
+          ARCHIVE="gctl-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          case "${{ matrix.target }}" in
+            *-windows)
+              cp zig-out/bin/gctl.exe "${ARCHIVE}.exe"
+              zip "${ARCHIVE}.zip" "${ARCHIVE}.exe"
+              rm "${ARCHIVE}.exe"
+              ;;
+            *)
+              tar czf "${ARCHIVE}.tar.gz" -C zig-out/bin gctl
+              ;;
+          esac
       - uses: softprops/action-gh-release@v2
         with:
-          files: zig-out/bin/gctl*
+          files: gctl-*
