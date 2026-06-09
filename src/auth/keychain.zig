@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const service_name = "gctl";
+const service_name = "gitctl";
 
 fn keyLabel(allocator: std.mem.Allocator, provider: []const u8, account: []const u8) ![]const u8 {
     return std.fmt.allocPrint(allocator, "{s}:{s}", .{ provider, account });
 }
 
 /// Store a token in the OS keychain.
-/// macOS: `security add-generic-password -s gctl -a <label> -w <token> -U`
-/// Linux: `secret-tool store --label=gctl service gctl account <label>` (reads token from stdin)
+/// macOS: `security add-generic-password -s gitctl -a <label> -w <token> -U`
+/// Linux: `secret-tool store --label=gitctl service gitctl account <label>` (reads token from stdin)
 pub fn store(allocator: std.mem.Allocator, provider: []const u8, account: []const u8, token: []const u8) !void {
     const label = try keyLabel(allocator, provider, account);
     defer allocator.free(label);
@@ -20,7 +20,7 @@ pub fn store(allocator: std.mem.Allocator, provider: []const u8, account: []cons
         defer allocator.free(result.stderr);
         if (result.term.Exited != 0) return error.KeychainStoreFailed;
     } else if (comptime isLinux()) {
-        const argv = &.{ "secret-tool", "store", "--label=gctl", "service", service_name, "account", label };
+        const argv = &.{ "secret-tool", "store", "--label=gitctl", "service", service_name, "account", label };
         var child = std.process.Child.init(argv, allocator);
         child.stdin_behavior = .Pipe;
         child.stdout_behavior = .Ignore;
@@ -38,8 +38,8 @@ pub fn store(allocator: std.mem.Allocator, provider: []const u8, account: []cons
 }
 
 /// Retrieve a token from the OS keychain.
-/// macOS: `security find-generic-password -s gctl -a <label> -w`
-/// Linux: `secret-tool lookup service gctl account <label>`
+/// macOS: `security find-generic-password -s gitctl -a <label> -w`
+/// Linux: `secret-tool lookup service gitctl account <label>`
 pub fn get(allocator: std.mem.Allocator, provider: []const u8, account: []const u8) !?[]const u8 {
     const label = try keyLabel(allocator, provider, account);
     defer allocator.free(label);
@@ -64,8 +64,8 @@ pub fn get(allocator: std.mem.Allocator, provider: []const u8, account: []const 
 }
 
 /// Delete a token from the OS keychain.
-/// macOS: `security delete-generic-password -s gctl -a <label>`
-/// Linux: `secret-tool clear service gctl account <label>`
+/// macOS: `security delete-generic-password -s gitctl -a <label>`
+/// Linux: `secret-tool clear service gitctl account <label>`
 pub fn delete(allocator: std.mem.Allocator, provider: []const u8, account: []const u8) !void {
     const label = try keyLabel(allocator, provider, account);
     defer allocator.free(label);

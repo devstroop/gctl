@@ -57,10 +57,10 @@ pub fn build(b: *std.Build) void {
         },
     });
 
-    // ── gctl executable ───────────────────────────────────────────
+    // ── gitctl executable ───────────────────────────────────────────
 
     const exe = b.addExecutable(.{
-        .name = "gctl",
+        .name = "gitctl",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,

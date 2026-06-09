@@ -3,88 +3,88 @@
 ## Read-Only Operations
 
 ```
-gctl doctor [--quick]
+gitctl doctor [--quick]
     Full system diagnostics.
     Checks: git repo, remotes, provider resolution, token presence,
     supported capabilities, API connectivity.
     Use --quick to skip API calls for instant local-only info.
 
-gctl status
+gitctl status
     Repo pulse: open issues, open PRs, latest activity.
     Requires a token (makes API calls to the provider).
 
-gctl repo view [owner/repo]
+gitctl repo view [owner/repo]
     Show repository details (description, stars, forks, visibility).
 
-gctl issue list
+gitctl issue list
     List open issues in the current repo.
 
-gctl issue view <number>
+gitctl issue view <number>
     Show issue details (title, author, state, body).
 
-gctl pr list
+gitctl pr list
     List open pull/merge requests.
 
-gctl pr view <number>
+gitctl pr view <number>
     Show PR/MR details (title, state, draft, branches).
 
-gctl api <method> <path>
+gitctl api <method> <path>
     Direct API call. Escape hatch for unsupported operations.
-    Example: gctl api GET /user
+    Example: gitctl api GET /user
 ```
 
 ### Custom Provider Usage
 
 ```sh
 # Point at any Git forge with a REST API
-gctl --provider custom --provider-url https://git.example.com/api/v1 context
+gitctl --provider custom --provider-url https://git.example.com/api/v1 context
 
 # Flags work before or after the command
-gctl context --provider custom --provider-url https://git.example.com/api/v1
+gitctl context --provider custom --provider-url https://git.example.com/api/v1
 
 # Equals-style flags
-gctl --provider=custom --provider-url=https://git.example.com/api/v1 context
+gitctl --provider=custom --provider-url=https://git.example.com/api/v1 context
 ```
 
-Custom providers have all capabilities set to `null` — use `gctl api` as an escape hatch for raw API access.
+Custom providers have all capabilities set to `null` — use `gitctl api` as an escape hatch for raw API access.
 
 ---
 
 ## GitLab Support
 
 All read-only/write operations, plus GitLab support via `GITLAB_TOKEN`.
-`gctl pr` commands map to GitLab merge requests automatically.
+`gitctl pr` commands map to GitLab merge requests automatically.
 
 ---
 
 ## Write Operations
 
 ```
-gctl repo create <name>
+gitctl repo create <name>
     Create a repository.
     Flags: --private, --description <text>
 
-gctl repo delete <name>
+gitctl repo delete <name>
     Delete a repository.
 
-gctl repo archive <name>
+gitctl repo archive <name>
     Archive a repository.
 
-gctl label set_all <labels>
+gitctl label set_all <labels>
     Replace all repo labels with a comma-separated list.
-    Example: gctl label set_all "bug,feature,urgent"
+    Example: gitctl label set_all "bug,feature,urgent"
 
-gctl issue create <title>
+gitctl issue create <title>
     Create an issue. Returns number, title, state, URL.
 
-gctl issue close <number>
+gitctl issue close <number>
     Close an issue.
 
-gctl pr create <title>
+gitctl pr create <title>
     Create a pull/merge request.
     Flags: --draft (planned)
 
-gctl pr merge <number>
+gitctl pr merge <number>
     Merge a pull/merge request.
     Flags: --squash, --message (planned)
 ```
@@ -96,34 +96,34 @@ gctl pr merge <number>
 All cross-provider commands use REST-style resource paths: `[<remote>/]<type>/[<id>]`.
 
 ```
-gctl network [--all]
+gitctl network [--all]
     Show all remotes with provider, owner, repo.
     Uses multi-context resolution — parses every fetch remote.
     --all shows raw URLs in a table format.
 
-gctl copy <source-path> <target-remote>
+gitctl copy <source-path> <target-remote>
     Copy a resource from the current repo to another remote.
     Examples:
-      gctl copy issues/14 upstream
-      gctl copy prs/42 upstream
+      gitctl copy issues/14 upstream
+      gitctl copy prs/42 upstream
 
-gctl diff <type> <remote>
+gitctl diff <type> <remote>
     Show resources present in current repo but missing on target.
     Examples:
-      gctl diff issues upstream       # issues missing in upstream
-      gctl diff prs upstream          # PRs missing in upstream
+      gitctl diff issues upstream       # issues missing in upstream
+      gitctl diff prs upstream          # PRs missing in upstream
 
-gctl export <resource-path>
+gitctl export <resource-path>
     Write a resource as JSON to stdout.
     Examples:
-      gctl export issues/14
-      gctl export issues/             # all issues (JSON array)
-      gctl export upstream/issues/    # all issues from upstream remote
+      gitctl export issues/14
+      gitctl export issues/             # all issues (JSON array)
+      gitctl export upstream/issues/    # all issues from upstream remote
 
-gctl import <resource-path>
+gitctl import <resource-path>
     Read JSON from stdin and create a resource.
     Examples:
-      gctl import upstream/issues/ < issue.json
+      gitctl import upstream/issues/ < issue.json
 ```
 
 ### Pipe Model
@@ -133,21 +133,21 @@ stdout/stdin, enabling arbitrary composition:
 
 ```sh
 # Copy a resource (export piped to import internally)
-gctl copy issues/14 upstream
+gitctl copy issues/14 upstream
 
 # Equivalent manual pipe
-gctl export issues/14 | gctl import upstream/issues/
+gitctl export issues/14 | gitctl import upstream/issues/
 
 # Inspect before importing
-gctl export issues/14 > issue.json
+gitctl export issues/14 > issue.json
 vim issue.json
-gctl import upstream/issues/ < issue.json
+gitctl import upstream/issues/ < issue.json
 
 # Bulk copy all issues
-gctl export issues/ | gctl import upstream/issues/
+gitctl export issues/ | gitctl import upstream/issues/
 
 # Chain with jq
-gctl export issues/ | jq '.[] | {title, body}'
+gitctl export issues/ | jq '.[] | {title, body}'
 ```
 
 ### Resource Path Resolution
@@ -168,15 +168,15 @@ support the type, a clear error is returned.
 ## Persistent Auth (planned)
 
 ```
-gctl auth login <provider>
+gitctl auth login <provider>
     OAuth device flow (GitHub), PAT prompt (GitLab).
 
-gctl auth logout <provider>
+gitctl auth logout <provider>
     Remove stored credentials.
 
-gctl auth list
+gitctl auth list
     Show all authenticated accounts.
 
-gctl auth status
+gitctl auth status
     Show current auth context.
 ```

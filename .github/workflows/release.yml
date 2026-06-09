@@ -25,15 +25,15 @@ jobs:
       - run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
       - name: Package archive
         run: |
-          ARCHIVE="gctl-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          ARCHIVE="gitctl-${GITHUB_REF_NAME}-${{ matrix.target }}"
           case "${{ matrix.target }}" in
             *-windows)
-              cp zig-out/bin/gctl.exe gctl.exe
-              zip "${ARCHIVE}.zip" gctl.exe
-              rm gctl.exe
+              cp zig-out/bin/gitctl.exe gitctl.exe
+              zip "${ARCHIVE}.zip" gitctl.exe
+              rm gitctl.exe
               ;;
             *)
-              tar czf "${ARCHIVE}.tar.gz" -C zig-out/bin gctl
+              tar czf "${ARCHIVE}.tar.gz" -C zig-out/bin gitctl
               ;;
           esac
       - name: Stage install scripts
@@ -42,7 +42,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            gctl-*
+            gitctl-*
             install.sh
             install.ps1
           overwrite_files: true

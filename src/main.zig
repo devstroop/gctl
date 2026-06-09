@@ -37,7 +37,7 @@ pub fn main() !void {
             error.InvalidCommand => {
                 try stderr_file.writeAll("error: unknown command '");
                 try stderr_file.writeAll(args[1]);
-                try stderr_file.writeAll("'\nRun 'gctl --help' for usage.\n");
+                try stderr_file.writeAll("'\nRun 'gitctl --help' for usage.\n");
                 std.process.exit(1);
             },
             else => return err,
@@ -63,7 +63,7 @@ pub fn main() !void {
         switch (err) {
             error.NoGitRepo => {
                 try stderr.interface.print("error: not a git repository\n", .{});
-                try stderr.interface.print("Run gctl inside a git repo, or use --provider to specify one.\n", .{});
+                try stderr.interface.print("Run gitctl inside a git repo, or use --provider to specify one.\n", .{});
                 stderr.end() catch {};
                 std.process.exit(1);
             },
@@ -93,7 +93,7 @@ pub fn main() !void {
         const t = auth.getToken(allocator, first_ctx.provider, result.account) catch null;
         break :blk t orelse {
             try stderr.interface.print("error: no token for {s}\n", .{first_ctx.provider});
-            try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
+            try stderr.interface.print("Set {s}_TOKEN or run 'gitctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
             stderr.end() catch {};
             std.process.exit(1);
         };

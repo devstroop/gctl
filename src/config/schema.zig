@@ -31,14 +31,14 @@ pub const Defaults = struct {
     provider: []const u8 = "auto",
 };
 
-/// Read config from ~/.gctl/config.json.
+/// Read config from ~/.gitctl/config.json.
 /// Returns a default config if the file doesn't exist.
 pub fn read(allocator: std.mem.Allocator) !Config {
     const home_buf = try homeDir(allocator);
     const home = home_buf orelse return Config{ .accounts = &.{}, .defaults = .{} };
     defer allocator.free(home_buf.?);
 
-    const config_dir = try std.fs.path.join(allocator, &.{ home, ".gctl" });
+    const config_dir = try std.fs.path.join(allocator, &.{ home, ".gitctl" });
     defer allocator.free(config_dir);
 
     const config_path = try std.fs.path.join(allocator, &.{ config_dir, "config.json" });
@@ -59,13 +59,13 @@ pub fn read(allocator: std.mem.Allocator) !Config {
     return parsed.value;
 }
 
-/// Write config to ~/.gctl/config.json.
+/// Write config to ~/.gitctl/config.json.
 pub fn write(allocator: std.mem.Allocator, cfg: Config) !void {
     const home_buf = try homeDir(allocator);
     const home = home_buf orelse return error.NoHomeDirectory;
     defer allocator.free(home_buf.?);
 
-    const config_dir = try std.fs.path.join(allocator, &.{ home, ".gctl" });
+    const config_dir = try std.fs.path.join(allocator, &.{ home, ".gitctl" });
     defer allocator.free(config_dir);
 
     const config_path = try std.fs.path.join(allocator, &.{ config_dir, "config.json" });
@@ -120,11 +120,11 @@ test "read: parses config file correctly" {
     const tmp_path = try tmp_dir.dir.realpathAlloc(allocator, ".");
     defer allocator.free(tmp_path);
 
-    const gctl_dir = try std.fs.path.join(allocator, &.{ tmp_path, ".gctl" });
-    defer allocator.free(gctl_dir);
-    try std.fs.makeDirAbsolute(gctl_dir);
+    const gitctl_dir = try std.fs.path.join(allocator, &.{ tmp_path, ".gitctl" });
+    defer allocator.free(gitctl_dir);
+    try std.fs.makeDirAbsolute(gitctl_dir);
 
-    const config_path = try std.fs.path.join(allocator, &.{ gctl_dir, "config.json" });
+    const config_path = try std.fs.path.join(allocator, &.{ gitctl_dir, "config.json" });
     defer allocator.free(config_path);
 
     const config_content =
@@ -177,7 +177,7 @@ test "write: creates config file with correct content" {
 
     try write(allocator, cfg);
 
-    const config_path = try std.fs.path.join(allocator, &.{ tmp_path, ".gctl", "config.json" });
+    const config_path = try std.fs.path.join(allocator, &.{ tmp_path, ".gitctl", "config.json" });
     defer allocator.free(config_path);
 
     const content = try std.fs.readFileAbsoluteAlloc(config_path, allocator, 1024 * 16);
@@ -221,14 +221,14 @@ test "write: creates directory if it doesn't exist" {
 
     try write(allocator, cfg);
 
-    const gctl_dir = try std.fs.path.join(allocator, &.{ tmp_path, ".gctl" });
-    defer allocator.free(gctl_dir);
-    const dir = std.fs.openDirAbsolute(gctl_dir, .{}) catch {
+    const gitctl_dir = try std.fs.path.join(allocator, &.{ tmp_path, ".gitctl" });
+    defer allocator.free(gitctl_dir);
+    const dir = std.fs.openDirAbsolute(gitctl_dir, .{}) catch {
         return error.TestDirNotCreated;
     };
     dir.close();
 
-    const config_path = try std.fs.path.join(allocator, &.{ gctl_dir, "config.json" });
+    const config_path = try std.fs.path.join(allocator, &.{ gitctl_dir, "config.json" });
     defer allocator.free(config_path);
     const file = try std.fs.openFileAbsolute(config_path, .{ .mode = .read_only });
     file.close();
@@ -254,7 +254,7 @@ test "write: respects empty accounts" {
 
     try write(allocator, cfg);
 
-    const config_path = try std.fs.path.join(allocator, &.{ tmp_path, ".gctl", "config.json" });
+    const config_path = try std.fs.path.join(allocator, &.{ tmp_path, ".gitctl", "config.json" });
     defer allocator.free(config_path);
 
     const content = try std.fs.readFileAbsoluteAlloc(config_path, allocator, 1024 * 16);

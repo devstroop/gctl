@@ -144,7 +144,7 @@ pub fn execList(stdout: anytype, allocator: std.mem.Allocator) !void {
     const cfg = try config.read(allocator);
     if (cfg.accounts.len == 0) {
         try stdout.interface.print("No accounts configured.\n", .{});
-        try stdout.interface.print("Run 'gctl auth login <provider>' to add one.\n", .{});
+        try stdout.interface.print("Run 'gitctl auth login <provider>' to add one.\n", .{});
         return;
     }
     try stdout.interface.print("Configured accounts:\n\n", .{});
@@ -180,6 +180,6 @@ pub fn execStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, acc
         if (acc.url) |u| try stdout.interface.print("  URL:       {s}\n", .{u});
     } else {
         try stdout.interface.print("  Account '{s}' not found in config.\n", .{account});
-        try stdout.interface.print("  Run 'gctl auth list' to see configured accounts.\n", .{});
+        try stdout.interface.print("  Run 'gitctl auth list' to see configured accounts.\n", .{});
     }
 }

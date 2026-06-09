@@ -1,6 +1,6 @@
 # Config Schema
 
-File: `~/.gctl/config.json`
+File: `~/.gitctl/config.json`
 
 ```json
 {

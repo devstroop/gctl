@@ -18,7 +18,7 @@ fn request(allocator: std.mem.Allocator, method: std.http.Method, url: []const u
     var extra_count: usize = 0;
     extra_headers[extra_count] = .{ .name = "Accept", .value = "application/vnd.github+json" };
     extra_count += 1;
-    extra_headers[extra_count] = .{ .name = "User-Agent", .value = "gctl/0.1.0" };
+    extra_headers[extra_count] = .{ .name = "User-Agent", .value = "gitctl/0.1.0" };
     extra_count += 1;
 
     // Build authorization header if token provided

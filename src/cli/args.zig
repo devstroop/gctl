@@ -217,9 +217,9 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
 
 pub fn printHelp(writer: anytype) !void {
     try writer.interface.writeAll(
-        \\gctl — Cross-forge Git operations, one CLI
+        \\gitctl — Cross-forge Git operations, one CLI
         \\
-        \\Usage: gctl <command> [options]
+        \\Usage: gitctl <command> [options]
         \\
         \\Commands:
         \\  doctor [--quick]       System diagnostics (omit token checks with --quick)
@@ -263,9 +263,9 @@ pub fn printHelp(writer: anytype) !void {
         \\  TOKEN              Generic token for custom providers
         \\
         \\Examples:
-        \\  gctl doctor
-        \\  gctl doctor --quick
-        \\  gctl repo create my-project --private --description "My thing"
+        \\  gitctl doctor
+        \\  gitctl doctor --quick
+        \\  gitctl repo create my-project --private --description "My thing"
         \\
     );
 }

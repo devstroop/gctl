@@ -4,7 +4,7 @@ param(
     [string]$InstallDir = ""
 )
 
-$Repo = "devstroop/gctl"
+$Repo = "devstroop/gitctl"
 
 function Write-Help {
     @"
@@ -12,7 +12,7 @@ Usage: irm https://github.com/$Repo/releases/latest/download/install.ps1 | iex
 
 Options:
   --version <tag>   Version tag to install (default: latest)
-  --dir <path>      Install directory (default: %LOCALAPPDATA%\gctl)
+  --dir <path>      Install directory (default: %LOCALAPPDATA%\gitctl)
   --help            Show this help
 "@
     exit 0
@@ -30,7 +30,7 @@ while ($i -lt $args.Count) {
 }
 
 if (-not $InstallDir) {
-    $InstallDir = "$env:LOCALAPPDATA\gctl"
+    $InstallDir = "$env:LOCALAPPDATA\gitctl"
 }
 
 # Detect architecture
@@ -47,17 +47,17 @@ if ($Version -eq "latest") {
     $Version = $release.tag_name
 }
 
-$Archive = "gctl-${Version}-${Arch}-windows.zip"
+$Archive = "gitctl-${Version}-${Arch}-windows.zip"
 $Url = "https://github.com/$Repo/releases/download/$Version/$Archive"
 
 Write-Host "  Repository:  $Repo"
 Write-Host "  Version:     $Version"
 Write-Host "  Platform:    $Arch-windows"
-Write-Host "  Target:      $InstallDir\gctl.exe"
+Write-Host "  Target:      $InstallDir\gitctl.exe"
 Write-Host ""
 
 # Download
-$Tmp = "$env:TEMP\gctl-install"
+$Tmp = "$env:TEMP\gitctl-install"
 New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
 try {
     Write-Host "  Downloading $Archive..."
@@ -69,7 +69,7 @@ try {
 
     # Install
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    Move-Item -Force "$Tmp\gctl.exe" "$InstallDir\gctl.exe"
+    Move-Item -Force "$Tmp\gitctl.exe" "$InstallDir\gitctl.exe"
 
     # Add to user PATH if not already there
     $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -80,7 +80,7 @@ try {
     }
 
     Write-Host ""
-    Write-Host "  ✓ gctl $Version installed to $InstallDir\gctl.exe"
+    Write-Host "  ✓ gitctl $Version installed to $InstallDir\gitctl.exe"
 } finally {
     Remove-Item "$Tmp" -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="devstroop/gctl"
+REPO="devstroop/gitctl"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 VERSION="${VERSION:-latest}"
 
@@ -44,13 +44,13 @@ if [ "$VERSION" = "latest" ]; then
     VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": "\(.*\)",/\1/')"
 fi
 
-ARCHIVE="gctl-${VERSION}-${ARCH}-${OS}.tar.gz"
+ARCHIVE="gitctl-${VERSION}-${ARCH}-${OS}.tar.gz"
 URL="https://github.com/$REPO/releases/download/$VERSION/$ARCHIVE"
 
 echo "  Repository:  $REPO"
 echo "  Version:     $VERSION"
 echo "  Platform:    $ARCH-$OS"
-echo "  Target:      $INSTALL_DIR/gctl"
+echo "  Target:      $INSTALL_DIR/gitctl"
 echo ""
 
 # Download
@@ -67,11 +67,11 @@ tar xzf "$TMP/$ARCHIVE" -C "$TMP"
 mkdir -p "$INSTALL_DIR"
 if [ ! -w "$INSTALL_DIR" ]; then
     echo "  Escalating with sudo to write to $INSTALL_DIR..."
-    sudo install "$TMP/gctl" "$INSTALL_DIR/gctl"
+    sudo install "$TMP/gitctl" "$INSTALL_DIR/gitctl"
 else
-    install "$TMP/gctl" "$INSTALL_DIR/gctl"
+    install "$TMP/gitctl" "$INSTALL_DIR/gitctl"
 fi
 
 echo ""
-echo "  ✓ gctl $VERSION installed to $INSTALL_DIR/gctl"
-"$INSTALL_DIR/gctl" --help | head -1
+echo "  ✓ gitctl $VERSION installed to $INSTALL_DIR/gitctl"
+"$INSTALL_DIR/gitctl" --help | head -1

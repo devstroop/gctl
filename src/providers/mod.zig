@@ -104,7 +104,7 @@ pub fn execute(
 
     if (token == null and command != .doctor) {
         try stderr.interface.print("error: no token for {s}\n", .{ctx.provider});
-        try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperEnvVar(ctx.provider), ctx.provider });
+        try stderr.interface.print("Set {s}_TOKEN or run 'gitctl auth login {s}'.\n", .{ upperEnvVar(ctx.provider), ctx.provider });
         stderr.end() catch {};
         std.process.exit(1);
     }
@@ -631,7 +631,7 @@ fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, pr
 fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, provider_url: ?[]const u8, quick: bool) !void {
     const ctx = ctxs[0];
 
-    try stdout.interface.print("gctl doctor — system diagnostics\n\n", .{});
+    try stdout.interface.print("gitctl doctor — system diagnostics\n\n", .{});
 
     // Phase 1: local checks
     try stdout.interface.print("── Git ──────────────────────────────────────\n", .{});
@@ -677,7 +677,7 @@ fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.Re
     if (quick or token.len == 0) {
         try stdout.interface.print("\n── Summary ────────────────────────────────────\n", .{});
         if (quick) {
-            try stdout.interface.print("  Quick check complete — run gctl doctor (without --quick) for full API checks\n", .{});
+            try stdout.interface.print("  Quick check complete — run gitctl doctor (without --quick) for full API checks\n", .{});
         } else {
             try stdout.interface.print("  ⚠  Set {s} to enable API checks\n", .{env_var});
         }

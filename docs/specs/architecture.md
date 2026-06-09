@@ -17,7 +17,7 @@ A provider without a capability sets its vtable to `null`. The command dispatch 
 
 The `custom` provider ships with all capabilities set to `null` — users provide their own API via `--provider-url`. This enables working with any Git forge that has a REST API.
 
-**Vtable philosophy**: Start with 3 vtables (repos, issues, prs). Add labels when needed. Do NOT add releases, pipelines, or other vtables until a real user workflow demands them. Use `gctl api` as the escape hatch for unsupported operations.
+**Vtable philosophy**: Start with 3 vtables (repos, issues, prs). Add labels when needed. Do NOT add releases, pipelines, or other vtables until a real user workflow demands them. Use `gitctl api` as the escape hatch for unsupported operations.
 
 ### RepoVtable
 
@@ -88,16 +88,16 @@ The type segment maps directly to the REST API endpoints of the underlying provi
 Cross-provider transfer follows the Unix pipe model:
 
 ```
-gctl export <resource-path>              → JSON on stdout
-gctl import <resource-path>              → reads JSON from stdin
-gctl copy <source-path> <target-remote>  → export | import (composition)
+gitctl export <resource-path>              → JSON on stdout
+gitctl import <resource-path>              → reads JSON from stdin
+gitctl copy <source-path> <target-remote>  → export | import (composition)
 ```
 
 ```
-gctl export issues/14 | jq '.title'              # inspect
-gctl export issues/14 > issue.json               # save to file
-gctl export issues/14 | gctl import upstream/issues/  # pipe across remotes
-gctl export issues/ | gctl import upstream/issues/   # bulk copy all
+gitctl export issues/14 | jq '.title'              # inspect
+gitctl export issues/14 > issue.json               # save to file
+gitctl export issues/14 | gitctl import upstream/issues/  # pipe across remotes
+gitctl export issues/ | gitctl import upstream/issues/   # bulk copy all
 ```
 
 This composes with any Unix tool and avoids creating a custom transfer protocol.
@@ -155,8 +155,8 @@ For every command, the context engine resolves:
 
 1. **Explicit flag**: `--provider github` or `--account personal`
 2. **Git remote detection**: Parse `git remote -v`, match URL patterns to known providers
-3. **Config fallback**: `defaults.provider` from `~/.gctl/config.json`
-4. **Error**: "No provider detected. Run `gctl doctor --quick` to debug."
+3. **Config fallback**: `defaults.provider` from `~/.gitctl/config.json`
+4. **Error**: "No provider detected. Run `gitctl doctor --quick` to debug."
 
 ### Multi-Context Resolution
 
@@ -167,8 +167,8 @@ pub fn resolve(allocator, provider_override, provider_url) ![]ResolvedContext
 ```
 
 - Single-repo commands (issue list, pr view) implicitly use `contexts[0]` (the first fetch remote)
-- `gctl doctor` shows diagnostics (local checks only with `--quick`, full API checks without)
-- `gctl network` shows all resolved remotes with provider, owner, repo (verbose table with `--all`)
+- `gitctl doctor` shows diagnostics (local checks only with `--quick`, full API checks without)
+- `gitctl network` shows all resolved remotes with provider, owner, repo (verbose table with `--all`)
 - Cross-provider commands (`copy`, `diff`) accept a source/target remote pair
 
 Custom provider detection:
@@ -201,7 +201,7 @@ The `upperProvider` function normalizes provider names for env lookup (e.g., `gi
 ## Directory Structure
 
 ```
-gctl/
+gitctl/
 ├── build.zig                 # Build system: modules, targets, tests
 ├── build.zig.zon             # Package manifest (no deps)
 ├── README.md                 # User-facing overview

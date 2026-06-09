@@ -1,10 +1,10 @@
 # Contributing
 
-Thank you for considering contributing to `gctl`.
+Thank you for considering contributing to `gitctl`.
 
 ## Project Overview
 
-`gctl` is a cross-forge Git CLI. It detects your provider from the git remote, resolves your auth token, and calls the provider API. One binary. No runtime. No dependencies beyond the Zig compiler.
+`gitctl` is a cross-forge Git CLI. It detects your provider from the git remote, resolves your auth token, and calls the provider API. One binary. No runtime. No dependencies beyond the Zig compiler.
 
 All API providers are implemented as capability vtables (`RepoVtable`, `IssueVtable`, `PRVtable`, `LabelVtable`). Each provider module (`github.zig`, `gitlab.zig`) fills in the vtables it supports. Adding a provider means implementing these vtables for that API.
 
@@ -119,7 +119,7 @@ When you add a new provider function, add corresponding JSON parsing tests. Mock
 ```zig
 test "parse repo response" {
     const json =
-        \\{"name": "gctl", "full_name": "devstroop/gctl", ...}
+        \\{"name": "gitctl", "full_name": "devstroop/gitctl", ...}
     ;
     // parse and assert fields
 }
@@ -249,4 +249,4 @@ git branch -d feat/gitlab-issues
 
 ## Questions
 
-Open an issue at https://github.com/devstroop/gctl/issues for questions or discussions.
+Open an issue at https://github.com/devstroop/gitctl/issues for questions or discussions.

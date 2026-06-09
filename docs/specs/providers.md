@@ -4,7 +4,7 @@
 
 Base URL: `https://api.github.com`
 
-| gctl command        | API endpoint                                     |
+| gitctl command        | API endpoint                                     |
 |---------------------|--------------------------------------------------|
 | `repo view`         | `GET /repos/{o}/{r}`                             |
 | `repo create`       | `POST /user/repos` or `POST /orgs/{o}/repos`     |
@@ -27,7 +27,7 @@ Base URL: `https://gitlab.com/api/v4`
 
 `pr` commands map to GitLab Merge Requests under the hood. The CLI surface stays uniform.
 
-| gctl command        | GitLab API endpoint                             |
+| gitctl command        | GitLab API endpoint                             |
 |---------------------|-------------------------------------------------|
 | `repo view`         | `GET /projects/{id}`                            |
 | `repo create`       | ❌ (NotSupported stub)                          |
@@ -42,16 +42,16 @@ Base URL: `https://gitlab.com/api/v4`
 | `pr view`           | `GET /projects/{id}/merge_requests/{n}`         |
 | `api`               | Any method + path against `gitlab.com/api/v4`   |
 
-`{id}` is the URL-encoded project path (e.g., `devstroop%2Fgctl`).
+`{id}` is the URL-encoded project path (e.g., `devstroop%2Fgitctl`).
 
 ---
 
 ## Custom
 
-Custom providers map to a user-supplied `--provider-url`. All capabilities are `null` by default. Use `gctl api` for raw HTTP access against the custom endpoint.
+Custom providers map to a user-supplied `--provider-url`. All capabilities are `null` by default. Use `gitctl api` for raw HTTP access against the custom endpoint.
 
 ```sh
-gctl --provider custom --provider-url https://git.example.com/api/v1 api GET /repos/owner/repo
+gitctl --provider custom --provider-url https://git.example.com/api/v1 api GET /repos/owner/repo
 ```
 
 The `TOKEN` environment variable is used for authentication with custom providers.

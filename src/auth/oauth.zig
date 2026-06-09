@@ -12,7 +12,7 @@ fn postForm(allocator: std.mem.Allocator, url: []const u8, form_body: []const u8
 
     var extra_headers = [_]std.http.Header{
         .{ .name = "Accept", .value = "application/json" },
-        .{ .name = "User-Agent", .value = "gctl/0.1.0" },
+        .{ .name = "User-Agent", .value = "gitctl/0.1.0" },
         .{ .name = "Content-Type", .value = "application/x-www-form-urlencoded" },
     };
 
