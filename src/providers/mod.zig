@@ -135,6 +135,10 @@ pub fn execute(
         .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target),
         .api => try execApi(stdout, stderr, allocator, p, t, provider_url, method, path),
         .network => unreachable,
+        .auth_login => unreachable,
+        .auth_logout => unreachable,
+        .auth_list => unreachable,
+        .auth_status => unreachable,
     }
 }
 

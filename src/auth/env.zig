@@ -1,18 +1,17 @@
 const std = @import("std");
 
+/// Return the env var name for a given provider.
+pub fn varName(provider: []const u8) []const u8 {
+    if (std.mem.eql(u8, provider, "github")) return "GITHUB_TOKEN";
+    if (std.mem.eql(u8, provider, "gitlab")) return "GITLAB_TOKEN";
+    if (std.mem.eql(u8, provider, "gitea")) return "GITEA_TOKEN";
+    return "TOKEN"; // generic fallback for custom / unknown providers
+}
+
 /// Get a token from environment variables.
 /// Checks: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN, TOKEN (generic fallback).
 pub fn getToken(provider: []const u8) !?[]const u8 {
-    const var_name = if (std.mem.eql(u8, provider, "github"))
-        "GITHUB_TOKEN"
-    else if (std.mem.eql(u8, provider, "gitlab"))
-        "GITLAB_TOKEN"
-    else if (std.mem.eql(u8, provider, "gitea"))
-        "GITEA_TOKEN"
-    else
-        "TOKEN"; // generic fallback for custom / unknown providers
-
-    return std.posix.getenv(var_name);
+    return std.posix.getenv(varName(provider));
 }
 
 test {

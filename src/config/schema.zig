@@ -62,16 +62,16 @@ pub fn write(allocator: std.mem.Allocator, cfg: Config) !void {
     };
 
     // Serialize to JSON
-    var json_buf = std.ArrayList(u8).init(allocator);
-    defer json_buf.deinit();
-
-    try std.json.stringify(cfg, .{ .whitespace = .{ .indent = .{ .space = 2 } } }, json_buf.writer());
+    const json_bytes = try std.json.Stringify.valueAlloc(allocator, cfg, .{});
+    defer allocator.free(json_bytes);
 
     // Write atomically: write to temp, then rename
     const tmp_path = try std.fmt.allocPrint(allocator, "{s}.tmp", .{config_path});
     defer allocator.free(tmp_path);
 
-    try std.fs.writeFileAbsolute(tmp_path, json_buf.items);
+    var tmp_file = try std.fs.createFileAbsolute(tmp_path, .{ .read = false });
+    defer tmp_file.close();
+    try tmp_file.writeAll(json_bytes);
     try std.fs.renameAbsolute(tmp_path, config_path);
 }
 

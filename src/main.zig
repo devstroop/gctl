@@ -44,6 +44,20 @@ pub fn main() !void {
         }
     };
 
+    // Handle auth commands early (no context needed)
+    if (result.command == .auth_list) {
+        return auth.execList(&stdout, allocator);
+    }
+    if (result.command == .auth_status) {
+        return auth.execStatus(&stdout, &stderr, allocator, result.account);
+    }
+    if (result.command == .auth_login) {
+        return auth.execLogin(&stdout, &stderr, allocator, result.name, result.account);
+    }
+    if (result.command == .auth_logout) {
+        return auth.execLogout(&stdout, &stderr, allocator, result.name, result.account);
+    }
+
     // Resolve all contexts from git remotes
     const ctxs = context.resolve(allocator, result.provider_override, result.provider_url) catch |err| {
         switch (err) {
@@ -68,19 +82,15 @@ pub fn main() !void {
     const first_ctx = ctxs[0];
     const token = blk: {
         if (result.command == .doctor) {
-            break :blk auth.getToken(allocator, first_ctx.provider, result.account) catch null;
+            break :blk (auth.getToken(allocator, first_ctx.provider, result.account) catch null) orelse "";
         }
-        break :blk (auth.getToken(allocator, first_ctx.provider, result.account) catch |err| {
-            switch (err) {
-                error.NoToken => {
-                    try stderr.interface.print("error: no token for {s}\n", .{first_ctx.provider});
-                    try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
-                    stderr.end() catch {};
-                    std.process.exit(1);
-                },
-                else => return err,
-            }
-        });
+        const t = auth.getToken(allocator, first_ctx.provider, result.account) catch null;
+        break :blk t orelse {
+            try stderr.interface.print("error: no token for {s}\n", .{first_ctx.provider});
+            try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperProvider(first_ctx.provider), first_ctx.provider });
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
     };
 
     try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target);

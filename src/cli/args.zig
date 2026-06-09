@@ -23,6 +23,10 @@ pub const Command = enum {
     pr_list,
     pr_view,
     api,
+    auth_login,
+    auth_logout,
+    auth_list,
+    auth_status,
 };
 
 pub const ParsedArgs = struct {
@@ -198,6 +202,11 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.target = arg;
                     }
                 },
+                .auth_login, .auth_logout => {
+                    if (result.name == null) {
+                        result.name = arg;
+                    }
+                },
                 else => {},
             }
         }
@@ -234,6 +243,10 @@ pub fn printHelp(writer: anytype) !void {
         \\  import <resource-path>  Create resource from JSON on stdin
         \\  copy <source> <target>  Copy resource across remotes (export | import)
         \\  diff <source> <target>  Compare resource across remotes
+        \\  auth login <provider>   Store a token for provider (prompts for token)
+        \\  auth logout <provider>  Remove stored token for provider
+        \\  auth list               Show all configured accounts
+        \\  auth status             Show current authentication context
         \\
         \\Flags:
         \\  --provider, -p <name>     Override provider (github|gitlab)
