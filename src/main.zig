@@ -58,6 +58,24 @@ pub fn main() !void {
         return auth.execLogout(&stdout, &stderr, allocator, result.name, result.account);
     }
 
+    // Handle shell completion (no context needed)
+    if (result.command == .completion) {
+        const shell = result.path orelse {
+            try stderr.interface.print("error: completion requires a shell name (bash, zsh, or fish)\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        cli.completions.printCompletions(&stdout, shell) catch |err| switch (err) {
+            error.UnsupportedShell => {
+                try stderr.interface.print("error: unsupported shell '{s}'. Supported shells: bash, zsh, fish\n", .{shell});
+                stderr.end() catch {};
+                std.process.exit(1);
+            },
+            else => return err,
+        };
+        return;
+    }
+
     // Resolve all contexts from git remotes
     const ctxs = context.resolve(allocator, result.provider_override, result.provider_url) catch |err| {
         switch (err) {
