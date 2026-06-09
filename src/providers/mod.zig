@@ -54,12 +54,14 @@ pub fn getProvider(name: []const u8) ?*const types.Provider {
     return null;
 }
 
-/// Execute a command against the resolved context.
+/// Execute a command against the resolved contexts.
+/// Single-repo commands use ctxs[0]. Commands supporting --all
+/// iterate all contexts.
 pub fn execute(
     allocator: std.mem.Allocator,
     stdout: anytype,
     stderr: anytype,
-    ctx: context.ResolvedContext,
+    ctxs: []context.ResolvedContext,
     token: ?[]const u8,
     command: cli.Command,
     number: ?u64,
@@ -70,7 +72,15 @@ pub fn execute(
     labels: ?[]const u8,
     title: ?[]const u8,
     base: ?[]const u8,
+    all: bool,
 ) !void {
+    if (ctxs.len == 0) {
+        try stderr.interface.print("error: no context resolved\n", .{});
+        stderr.end() catch {};
+        std.process.exit(1);
+    }
+
+    const ctx = ctxs[0];
     const provider = getProvider(ctx.provider);
     if (provider == null) {
         try stderr.interface.print("error: unknown provider '{s}'\n", .{ctx.provider});
@@ -80,17 +90,17 @@ pub fn execute(
 
     const p = provider.?;
 
-    if (token == null) {
+    if (token == null and command != .context) {
         try stderr.interface.print("error: no token for {s}\n", .{ctx.provider});
         try stderr.interface.print("Set {s}_TOKEN or run 'gctl auth login {s}'.\n", .{ upperEnvVar(ctx.provider), ctx.provider });
         stderr.end() catch {};
         std.process.exit(1);
     }
 
-    const t = token.?;
+    const t = if (token) |tok| tok else "";
 
     switch (command) {
-        .context => try printContext(stdout, ctx, p, provider_url),
+        .context => try printContext(stdout, allocator, ctxs, provider_url, all),
         .status => try printStatus(stdout, ctx, p, provider_url),
         .repo_view => try execRepoView(allocator, stdout, stderr, p, t, ctx),
         .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private),
@@ -109,17 +119,32 @@ pub fn execute(
     }
 }
 
-fn printContext(writer: anytype, ctx: context.ResolvedContext, provider: *const types.Provider, provider_url: ?[]const u8) !void {
-    _ = provider;
-    try writer.interface.print("Provider:  {s}\n", .{ctx.provider});
-    if (provider_url) |url| {
-        try writer.interface.print("API URL:   {s}\n", .{url});
+fn printContext(writer: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider_url: ?[]const u8, all: bool) !void {
+    if (!all or ctxs.len <= 1) {
+        const ctx = ctxs[0];
+        try writer.interface.print("Provider:  {s}\n", .{ctx.provider});
+        if (provider_url) |url| {
+            try writer.interface.print("API URL:   {s}\n", .{url});
+        }
+        try writer.interface.print("Account:   not configured (env var token)\n", .{});
+        try writer.interface.print("Owner:     {s}\n", .{ctx.owner});
+        try writer.interface.print("Repo:      {s}\n", .{ctx.repo});
+        try writer.interface.print("Remote:    {s} ({s})\n", .{ ctx.remote_name, ctx.remote_url });
+        try writer.interface.print("Token:     {s}\n", .{ctx.token_source});
+        return;
     }
-    try writer.interface.print("Account:   not configured (env var token)\n", .{});
-    try writer.interface.print("Owner:     {s}\n", .{ctx.owner});
-    try writer.interface.print("Repo:      {s}\n", .{ctx.repo});
-    try writer.interface.print("Remote:    {s} ({s})\n", .{ ctx.remote_name, ctx.remote_url });
-    try writer.interface.print("Token:     {s}\n", .{ctx.token_source});
+
+    // --all: show all contexts
+    try writer.interface.print("Found {d} remotes:\n\n", .{ctxs.len});
+    for (ctxs, 1..) |ctx, i| {
+        try writer.interface.print("{d}. {s}\n", .{ i, ctx.remote_name });
+        try writer.interface.print("   URL:      {s}\n", .{ctx.remote_url});
+        try writer.interface.print("   Provider: {s}\n", .{ctx.provider});
+        try writer.interface.print("   Owner:    {s}\n", .{ctx.owner});
+        try writer.interface.print("   Repo:     {s}\n", .{ctx.repo});
+        try writer.interface.print("\n", .{});
+    }
+    _ = allocator;
 }
 
 fn printStatus(writer: anytype, ctx: context.ResolvedContext, provider: *const types.Provider, provider_url: ?[]const u8) !void {

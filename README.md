@@ -1,8 +1,13 @@
 # gctl
 
+[![CI](https://github.com/devstroop/gctl/actions/workflows/ci.yml/badge.svg)](https://github.com/devstroop/gctl/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Cross-forge Git operations — one CLI.**
 
-`cd anywhere && gctl status` — knows your provider, owner, repo. No flags.
+`cd anywhere && gctl status` — knows your provider, owner, and repo from git remotes. No config. No flags. No friction.
+
+<br>
 
 ---
 

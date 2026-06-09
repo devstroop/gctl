@@ -36,6 +36,7 @@ pub const ParsedArgs = struct {
     labels: ?[]const u8 = null,
     title: ?[]const u8 = null,
     base: ?[]const u8 = null,
+    all: bool = false,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -125,6 +126,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
             if (i < args.len) {
                 result.base = args[i];
             }
+        } else if (std.mem.eql(u8, arg, "--all")) {
+            result.all = true;
         } else if (std.mem.eql(u8, arg, "--private")) {
             result.private = true;
         } else if (std.mem.eql(u8, arg, "--no-private")) {
@@ -188,7 +191,7 @@ pub fn printHelp(writer: anytype) !void {
         \\Usage: gctl <command> [options]
         \\
         \\Commands:
-        \\  context                Show detected provider and repo context
+        \\  context [--all]        Show detected provider and repo context
         \\  status                 High-level repo summary
         \\  repo view [owner/repo] View repository details
         \\  repo create <name>     Create a repository
