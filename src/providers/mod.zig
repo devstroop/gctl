@@ -762,7 +762,7 @@ fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
         const info = try repos.archive(allocator, token, ctx.owner, repo_name, true);
         try cli.output.printKeyValue(stdout, &.{
             .{ "Name", info.name },
-            .{ "Archived", if (info.visibility.len > 0) "yes" else "yes" },
+            .{ "Archived", "yes" },
             .{ "URL", info.url },
         }, false);
         return;

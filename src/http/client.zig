@@ -7,7 +7,7 @@ pub const Response = struct {
     status: u16,
 };
 
-fn request(allocator: std.mem.Allocator, method: std.http.Method, url: []const u8, token: ?[]const u8, req_body: ?[]const u8) !Response {
+fn request(allocator: std.mem.Allocator, method: std.http.Method, url: []const u8, token: ?[]const u8, req_body: ?[]const u8, accept: ?[]const u8) !Response {
     const uri = try std.Uri.parse(url);
 
     var client: std.http.Client = .{ .allocator = allocator };
@@ -16,7 +16,7 @@ fn request(allocator: std.mem.Allocator, method: std.http.Method, url: []const u
     // Build extra headers (must outlive the request)
     var extra_headers: [4]std.http.Header = undefined;
     var extra_count: usize = 0;
-    extra_headers[extra_count] = .{ .name = "Accept", .value = "application/vnd.github+json" };
+    extra_headers[extra_count] = .{ .name = "Accept", .value = accept orelse "application/json" };
     extra_count += 1;
     extra_headers[extra_count] = .{ .name = "User-Agent", .value = "gitctl/0.1.0" };
     extra_count += 1;
@@ -60,27 +60,52 @@ fn request(allocator: std.mem.Allocator, method: std.http.Method, url: []const u
 /// Make an HTTP GET request to the given URL with a Bearer token.
 /// Returns the response body and status code.
 pub fn get(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8) !Response {
-    return request(allocator, .GET, url, token, null);
+    return request(allocator, .GET, url, token, null, null);
 }
 
 /// Make an HTTP POST request with a JSON body.
 pub fn post(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8) !Response {
-    return request(allocator, .POST, url, token, body);
+    return request(allocator, .POST, url, token, body, null);
 }
 
 /// Make an HTTP PATCH request with a JSON body.
 pub fn patch(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8) !Response {
-    return request(allocator, .PATCH, url, token, body);
+    return request(allocator, .PATCH, url, token, body, null);
 }
 
 /// Make an HTTP DELETE request.
 pub fn delete(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8) !Response {
-    return request(allocator, .DELETE, url, token, null);
+    return request(allocator, .DELETE, url, token, null, null);
 }
 
 /// Make an HTTP PUT request.
 pub fn put(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8) !Response {
-    return request(allocator, .PUT, url, token, body);
+    return request(allocator, .PUT, url, token, body, null);
+}
+
+/// Make an HTTP GET request with custom Accept header.
+pub fn getAccept(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, accept: []const u8) !Response {
+    return request(allocator, .GET, url, token, null, accept);
+}
+
+/// Make an HTTP POST request with custom Accept header.
+pub fn postAccept(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8, accept: []const u8) !Response {
+    return request(allocator, .POST, url, token, body, accept);
+}
+
+/// Make an HTTP PATCH request with custom Accept header.
+pub fn patchAccept(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8, accept: []const u8) !Response {
+    return request(allocator, .PATCH, url, token, body, accept);
+}
+
+/// Make an HTTP DELETE request with custom Accept header.
+pub fn deleteAccept(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, accept: []const u8) !Response {
+    return request(allocator, .DELETE, url, token, null, accept);
+}
+
+/// Make an HTTP PUT request with custom Accept header.
+pub fn putAccept(allocator: std.mem.Allocator, url: []const u8, token: ?[]const u8, body: []const u8, accept: []const u8) !Response {
+    return request(allocator, .PUT, url, token, body, accept);
 }
 
 test {
@@ -89,4 +114,9 @@ test {
     _ = patch;
     _ = delete;
     _ = put;
+    _ = getAccept;
+    _ = postAccept;
+    _ = patchAccept;
+    _ = deleteAccept;
+    _ = putAccept;
 }

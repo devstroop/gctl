@@ -31,11 +31,13 @@ fn getStringArray(allocator: std.mem.Allocator, obj: std.json.ObjectMap, key: []
 
 // ── Shared request helper ──────────────────────────────────────────────────
 
+const GITHUB_ACCEPT = "application/vnd.github+json";
+
 fn apiGet(allocator: std.mem.Allocator, token: []const u8, path: []const u8) !std.json.Parsed(std.json.Value) {
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
     defer allocator.free(url);
 
-    const resp = try http.client.get(allocator, url, token);
+    const resp = try http.client.getAccept(allocator, url, token, GITHUB_ACCEPT);
     defer allocator.free(resp.body);
 
     if (resp.status < 200 or resp.status >= 300) {
@@ -50,7 +52,7 @@ fn apiPost(allocator: std.mem.Allocator, token: []const u8, path: []const u8, bo
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
     defer allocator.free(url);
 
-    const resp = try http.client.post(allocator, url, token, body);
+    const resp = try http.client.postAccept(allocator, url, token, body, GITHUB_ACCEPT);
     defer allocator.free(resp.body);
 
     if (resp.status < 200 or resp.status >= 300) {
@@ -65,7 +67,7 @@ fn apiPatch(allocator: std.mem.Allocator, token: []const u8, path: []const u8, b
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
     defer allocator.free(url);
 
-    const resp = try http.client.patch(allocator, url, token, body);
+    const resp = try http.client.patchAccept(allocator, url, token, body, GITHUB_ACCEPT);
     defer allocator.free(resp.body);
 
     if (resp.status < 200 or resp.status >= 300) {
@@ -138,7 +140,7 @@ fn repoDelete(allocator: std.mem.Allocator, token: []const u8, owner: []const u8
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
     defer allocator.free(url);
 
-    const resp = try http.client.delete(allocator, url, token);
+    const resp = try http.client.deleteAccept(allocator, url, token, GITHUB_ACCEPT);
     defer allocator.free(resp.body);
 
     if (resp.status < 200 or resp.status >= 300) {
@@ -210,7 +212,7 @@ fn labelSetAll(allocator: std.mem.Allocator, token: []const u8, owner: []const u
         const del_url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, del_path });
         defer allocator.free(del_url);
 
-        const resp = try http.client.delete(allocator, del_url, token);
+        const resp = try http.client.deleteAccept(allocator, del_url, token, GITHUB_ACCEPT);
         defer allocator.free(resp.body);
         if (resp.status < 200 or resp.status >= 300) {
             std.log.err("GitHub API DELETE returned {d}: {s}", .{ resp.status, resp.body });
@@ -449,7 +451,7 @@ fn prMerge(allocator: std.mem.Allocator, token: []const u8, owner: []const u8, r
     const url = try std.fmt.allocPrint(allocator, "{s}{s}", .{ BASE_URL, path });
     defer allocator.free(url);
 
-    const resp = try http.client.put(allocator, url, token, "{}");
+    const resp = try http.client.putAccept(allocator, url, token, "{}", GITHUB_ACCEPT);
     defer allocator.free(resp.body);
 
     if (resp.status < 200 or resp.status >= 300) {
