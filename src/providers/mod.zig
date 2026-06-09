@@ -30,11 +30,12 @@ const providers = [_]types.Provider{
     .{
         .name = "gitea",
         .base_url = "https://gitea.com/api/v1",
-        .repos = null,
-        .issues = null,
-        .prs = null,
+        .repos = gitea.repo_vtable,
+        .issues = gitea.issue_vtable,
+        .prs = gitea.pr_vtable,
+        .labels = gitea.label_vtable,
         .releases = null,
-        .pipelines = null, // always null for Gitea
+        .pipelines = null,
     },
     .{
         .name = "custom",
