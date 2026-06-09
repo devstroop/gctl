@@ -6,7 +6,7 @@ pub const Command = enum {
     network,
     status,
     @"export",
-    @"import",
+    import,
     copy,
     diff,
     repo_view,
@@ -190,7 +190,7 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.path = arg;
                     }
                 },
-                .@"export", .@"import" => {
+                .@"export", .import => {
                     if (result.path == null) {
                         result.path = arg;
                     }

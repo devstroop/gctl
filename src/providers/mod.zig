@@ -111,7 +111,7 @@ pub fn execute(
 
     // Export/import — use current provider, path-based resource addressing
     if (command == .@"export") return execExport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
-    if (command == .@"import") return execImport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
+    if (command == .import) return execImport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
 
     switch (command) {
         .doctor => try printDoctor(stdout, allocator, ctxs, t, provider_url, quick),
@@ -130,7 +130,7 @@ pub fn execute(
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
         .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number),
         .@"export" => unreachable,
-        .@"import" => unreachable,
+        .import => unreachable,
         .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target),
         .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target),
         .api => try execApi(stdout, stderr, allocator, p, t, provider_url, method, path),
@@ -397,7 +397,10 @@ fn diffIssue(stdout: anytype, a: types.IssueInfo, b: types.IssueInfo) !void {
         var same_labels = a.labels.len == b.labels.len;
         if (same_labels) {
             for (a.labels, b.labels) |la, lb| {
-                if (!std.mem.eql(u8, la, lb)) { same_labels = false; break; }
+                if (!std.mem.eql(u8, la, lb)) {
+                    same_labels = false;
+                    break;
+                }
             }
         }
         if (!same_labels) {
@@ -654,14 +657,14 @@ fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.Re
     };
 
     try stdout.interface.print("\n── Capabilities ──────────────────────────────\n", .{});
-    if (prov.repos != null)   try stdout.interface.print("  ✓ repos\n", .{});
-    if (prov.issues != null)  try stdout.interface.print("  ✓ issues\n", .{});
-    if (prov.prs != null)     try stdout.interface.print("  ✓ prs\n", .{});
-    if (prov.labels != null)  try stdout.interface.print("  ✓ labels\n", .{});
+    if (prov.repos != null) try stdout.interface.print("  ✓ repos\n", .{});
+    if (prov.issues != null) try stdout.interface.print("  ✓ issues\n", .{});
+    if (prov.prs != null) try stdout.interface.print("  ✓ prs\n", .{});
+    if (prov.labels != null) try stdout.interface.print("  ✓ labels\n", .{});
     if (prov.releases != null) try stdout.interface.print("  ✓ releases\n", .{});
     if (prov.pipelines != null) try stdout.interface.print("  ✓ pipelines\n", .{});
 
-    const env_var = try std.fmt.allocPrint(allocator, "{s}_TOKEN", .{ upperEnvVar(ctx.provider) });
+    const env_var = try std.fmt.allocPrint(allocator, "{s}_TOKEN", .{upperEnvVar(ctx.provider)});
     defer allocator.free(env_var);
 
     try stdout.interface.print("\n── Token ─────────────────────────────────────\n", .{});

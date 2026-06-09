@@ -78,6 +78,12 @@ pub fn main() !void {
     };
     defer context.contextsDeinit(ctxs, allocator);
 
+    // Network is purely local — no token needed
+    if (result.command == .network) {
+        try providers.execute(allocator, &stdout, &stderr, ctxs, null, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target);
+        return;
+    }
+
     // Use first context for token resolution
     const first_ctx = ctxs[0];
     const token = blk: {
