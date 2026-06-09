@@ -27,6 +27,7 @@ pub const Command = enum {
     auth_logout,
     auth_list,
     auth_status,
+    completion,
 };
 
 pub const ParsedArgs = struct {
@@ -198,6 +199,11 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.path = arg;
                     }
                 },
+                .completion => {
+                    if (result.path == null) {
+                        result.path = arg;
+                    }
+                },
                 .copy, .diff => {
                     if (result.source == null) {
                         result.source = arg;
@@ -250,6 +256,7 @@ pub fn printHelp(writer: anytype) !void {
         \\  auth logout <provider>  Remove stored token for provider
         \\  auth list               Show all configured accounts
         \\  auth status             Show current authentication context
+        \\  completion <shell>      Generate shell completions (bash|zsh|fish)
         \\
         \\Flags:
         \\  --provider, -p <name>     Override provider (github|gitlab)

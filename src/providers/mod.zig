@@ -141,6 +141,7 @@ pub fn execute(
         .auth_logout => unreachable,
         .auth_list => unreachable,
         .auth_status => unreachable,
+        .completion => unreachable,
     }
 }
 
