@@ -3,6 +3,7 @@ const std = @import("std");
 // ── Command tree ───────────────────────────────────────────────────────────
 pub const Command = enum {
     doctor,
+    network,
     status,
     repo_view,
     repo_create,
@@ -195,6 +196,7 @@ pub fn printHelp(writer: anytype) !void {
         \\
         \\Commands:
         \\  doctor [--quick]       System diagnostics (omit token checks with --quick)
+        \\  network [--all]        Show all remotes with provider, owner, repo
         \\  status                 Repo pulse: open issues, PRs, latest activity
         \\  repo view [owner/repo] View repository details
         \\  repo create <name>     Create a repository

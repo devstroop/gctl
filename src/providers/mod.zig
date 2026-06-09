@@ -73,11 +73,16 @@ pub fn execute(
     title: ?[]const u8,
     base: ?[]const u8,
     quick: bool,
+    all: bool,
 ) !void {
     if (ctxs.len == 0) {
         try stderr.interface.print("error: no context resolved\n", .{});
         stderr.end() catch {};
         std.process.exit(1);
+    }
+
+    if (command == .network) {
+        return printNetwork(stdout, ctxs, all);
     }
 
     const ctx = ctxs[0];
@@ -116,6 +121,36 @@ pub fn execute(
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
         .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number),
         .api => try stderr.interface.print("TODO: api command\n", .{}),
+        .network => unreachable,
+    }
+}
+
+fn printNetwork(writer: anytype, ctxs: []context.ResolvedContext, verbose: bool) !void {
+    if (verbose) {
+        // Verbose: raw table with all fields
+        const headers = [_][]const u8{ "#", "Remote", "Provider", "Owner", "Repo", "URL" };
+        var rows = try std.ArrayList([]const []const u8).initCapacity(std.heap.page_allocator, ctxs.len);
+        defer rows.deinit(std.heap.page_allocator);
+        for (ctxs, 0..) |c, i| {
+            const row = [_][]const u8{
+                try std.fmt.allocPrint(std.heap.page_allocator, "{d}", .{i + 1}),
+                c.remote_name,
+                c.provider,
+                c.owner,
+                c.repo,
+                c.remote_url,
+            };
+            try rows.append(std.heap.page_allocator, &row);
+        }
+        try cli.output.printTable(writer, &headers, rows.items, false);
+        return;
+    }
+
+    // Compact: numbered list
+    try writer.interface.print("Found {d} remote(s)\n\n", .{ctxs.len});
+    for (ctxs, 0..) |c, i| {
+        const active = if (i == 0) "  ← active" else "";
+        try writer.interface.print("  {d}. {s:20} {s:8} {s}/{s}{s}\n", .{ i + 1, c.remote_name, c.provider, c.owner, c.repo, active });
     }
 }
 

@@ -16,6 +16,22 @@ test "parseArgs: doctor command" {
     try std.testing.expectEqual(false, result.quick);
 }
 
+test "parseArgs: network command" {
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{"network"};
+    const result = try cli.parseArgs(allocator, &args);
+    try std.testing.expectEqual(cli.Command.network, result.command);
+    try std.testing.expectEqual(false, result.all);
+}
+
+test "parseArgs: network --all" {
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{ "network", "--all" };
+    const result = try cli.parseArgs(allocator, &args);
+    try std.testing.expectEqual(cli.Command.network, result.command);
+    try std.testing.expectEqual(true, result.all);
+}
+
 test "parseArgs: status command" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{"status"};

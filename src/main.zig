@@ -83,7 +83,7 @@ pub fn main() !void {
         });
     };
 
-    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick);
+    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all);
 }
 
 fn upperProvider(name: []const u8) []const u8 {

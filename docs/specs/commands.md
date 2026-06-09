@@ -96,9 +96,10 @@ gctl pr merge <number>
 All cross-provider commands use REST-style resource paths: `[<remote>/]<type>/[<id>]`.
 
 ```
-gctl network
-    Show all remotes with provider, owner, repo, and status.
-    Built on multi-context — parses every fetch remote.
+gctl network [--all]
+    Show all remotes with provider, owner, repo.
+    Uses multi-context resolution — parses every fetch remote.
+    --all shows raw URLs in a table format.
 
 gctl copy <source-path> <target-remote>
     Copy a resource from the current repo to another remote.

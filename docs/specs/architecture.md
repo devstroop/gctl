@@ -168,7 +168,7 @@ pub fn resolve(allocator, provider_override, provider_url) ![]ResolvedContext
 
 - Single-repo commands (issue list, pr view) implicitly use `contexts[0]` (the first fetch remote)
 - `gctl doctor` shows diagnostics (local checks only with `--quick`, full API checks without)
-- `gctl network` shows all resolved remotes with provider type and status
+- `gctl network` shows all resolved remotes with provider, owner, repo (verbose table with `--all`)
 - Cross-provider commands (`copy`, `diff`) accept a source/target remote pair
 
 Custom provider detection:
