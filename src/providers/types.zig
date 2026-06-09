@@ -124,9 +124,18 @@ pub const LabelVtable = struct {
     set_all: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: LabelParams) anyerror!void,
 };
 
+pub const ReleaseCreateParams = struct {
+    tag_name: []const u8,
+    name: ?[]const u8 = null,
+    body: ?[]const u8 = null,
+    draft: bool = false,
+    prerelease: bool = false,
+};
+
 pub const ReleaseVtable = struct {
     list: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8) anyerror![]ReleaseInfo,
     view: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, tag: []const u8) anyerror!ReleaseInfo,
+    create: *const fn (allocator: std.mem.Allocator, token: []const u8, owner: []const u8, repo: []const u8, params: ReleaseCreateParams) anyerror!ReleaseInfo,
 };
 
 pub const PipelineVtable = struct {
@@ -158,6 +167,7 @@ test {
     _ = IssueVtable;
     _ = PRVtable;
     _ = LabelVtable;
+    _ = ReleaseCreateParams;
     _ = ReleaseVtable;
     _ = PipelineVtable;
     _ = Provider;

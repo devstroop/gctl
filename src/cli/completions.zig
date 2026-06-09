@@ -8,7 +8,7 @@ pub fn completeBash(writer: anytype) !void {
         \\  local cur prev words cword
         \\  _init_completion || return
         \\
-        \\  local commands="doctor network status repo label issue pr api export import copy diff auth"
+        \\  local commands="doctor network status repo label issue pr release api export import copy diff auth"
         \\  local subcommands="view create delete archive set_all list close merge"
         \\  local flags="--provider -p --provider-url -u --account -a --description --private --base --json -j --help -h --all --quick"
         \\
@@ -35,6 +35,13 @@ pub fn completeBash(writer: anytype) !void {
         \\    pr)
         \\      if [[ $cword -eq 2 ]]; then
         \\        COMPREPLY=($(compgen -W "list view create merge" -- "$cur"))
+        \\      else
+        \\        COMPREPLY=($(compgen -W "$flags" -- "$cur"))
+        \\      fi
+        \\      ;;
+        \\    release)
+        \\      if [[ $cword -eq 2 ]]; then
+        \\        COMPREPLY=($(compgen -W "list view create" -- "$cur"))
         \\      else
         \\        COMPREPLY=($(compgen -W "$flags" -- "$cur"))
         \\      fi
@@ -77,6 +84,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\    'label:Label operations'
         \\    'issue:Issue operations'
         \\    'pr:Pull/merge request operations'
+        \\    'release:Release operations'
         \\    'api:Direct API call'
         \\    'export:Export resource as JSON'
         \\    'import:Import resource from JSON'
@@ -88,6 +96,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\  local -a repo_ops=(view create delete archive)
         \\  local -a issue_ops=(list view create close)
         \\  local -a pr_ops=(list view create merge)
+        \\  local -a release_ops=(list view create)
         \\  local -a label_ops=(set_all)
         \\  local -a auth_ops=(login logout list status)
         \\  local -a global_flags=(
@@ -118,6 +127,7 @@ pub fn completeZsh(writer: anytype) !void {
         \\    repo)  _describe 'subcommand' repo_ops; _arguments $global_flags ;;
         \\    issue) _describe 'subcommand' issue_ops; _arguments $global_flags ;;
         \\    pr)    _describe 'subcommand' pr_ops; _arguments $global_flags ;;
+        \\    release) _describe 'subcommand' release_ops; _arguments $global_flags ;;
         \\    label) _describe 'subcommand' label_ops; _arguments $global_flags ;;
         \\    auth)  _describe 'subcommand' auth_ops; _arguments $global_flags ;;
         \\    *)     _arguments $global_flags ;;
@@ -134,19 +144,20 @@ pub fn completeFish(writer: anytype) !void {
         \\complete -c gitctl -f
         \\
         \\# Commands
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a doctor -d "System diagnostics"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a network -d "Show all remotes"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a status -d "Repo pulse"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a repo -d "Repository operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a label -d "Label operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a issue -d "Issue operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a pr -d "Pull/merge request operations"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a api -d "Direct API call"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a export -d "Export resource as JSON"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a import -d "Import resource from JSON"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a copy -d "Copy resource across remotes"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a diff -d "Compare resource across remotes"
-        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr api export import copy diff auth" -a auth -d "Authentication"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a doctor -d "System diagnostics"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a network -d "Show all remotes"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a status -d "Repo pulse"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a repo -d "Repository operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a label -d "Label operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a issue -d "Issue operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a pr -d "Pull/merge request operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a release -d "Release operations"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a api -d "Direct API call"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a export -d "Export resource as JSON"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a import -d "Import resource from JSON"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a copy -d "Copy resource across remotes"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a diff -d "Compare resource across remotes"
+        \\complete -c gitctl -n "not __fish_seen_subcommand_from doctor network status repo label issue pr release api export import copy diff auth" -a auth -d "Authentication"
         \\
         \\# Repo subcommands
         \\complete -c gitctl -n "__fish_seen_subcommand_from repo" -a "view" -d "View repository"
@@ -165,6 +176,11 @@ pub fn completeFish(writer: anytype) !void {
         \\complete -c gitctl -n "__fish_seen_subcommand_from pr" -a "view" -d "View pull/merge request"
         \\complete -c gitctl -n "__fish_seen_subcommand_from pr" -a "create" -d "Create pull/merge request"
         \\complete -c gitctl -n "__fish_seen_subcommand_from pr" -a "merge" -d "Merge pull/merge request"
+        \\
+        \\# Release subcommands
+        \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "list" -d "List releases"
+        \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "view" -d "View release"
+        \\complete -c gitctl -n "__fish_seen_subcommand_from release" -a "create" -d "Create release"
         \\
         \\# Label subcommands
         \\complete -c gitctl -n "__fish_seen_subcommand_from label" -a "set_all" -d "Replace all repo labels"

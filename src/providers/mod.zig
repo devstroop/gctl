@@ -17,7 +17,7 @@ const providers = [_]types.Provider{
         .issues = github.issue_vtable,
         .prs = github.pr_vtable,
         .labels = github.label_vtable,
-        .releases = null,
+        .releases = github.release_vtable,
         .pipelines = null, // v0.5
     },
     .{
@@ -131,6 +131,9 @@ pub fn execute(
         .pr_merge => try execPRMerge(allocator, stdout, stderr, p, t, ctx, number, json),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx, json),
         .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number, json),
+        .release_list => try execReleaseList(allocator, stdout, stderr, p, t, ctx, json),
+        .release_view => try execReleaseView(allocator, stdout, stderr, p, t, ctx, name, json),
+        .release_create => try execReleaseCreate(allocator, stdout, stderr, p, t, ctx, name, description, private, json),
         .@"export" => unreachable,
         .import => unreachable,
         .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target, json),
@@ -1029,6 +1032,102 @@ fn execPRMerge(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, p
         return;
     }
     try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+// ── Releases ─────────────────────────────────────────────────────────────────
+
+fn execReleaseList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, json: bool) !void {
+    if (provider.releases) |releases| {
+        const list = try releases.list(allocator, token, ctx.owner, ctx.repo);
+        defer {
+            for (list) |r| {
+                allocator.free(r.tag_name);
+                allocator.free(r.name);
+                allocator.free(r.body);
+                allocator.free(r.url);
+                allocator.free(r.created_at);
+            }
+            allocator.free(list);
+        }
+
+        const headers = [_][]const u8{ "Tag", "Name", "Draft", "Pre", "URL" };
+        var rows = try std.ArrayList([]const []const u8).initCapacity(allocator, list.len);
+        defer rows.deinit(allocator);
+        for (list) |r| {
+            const row = [_][]const u8{
+                r.tag_name,
+                r.name,
+                if (r.draft) "yes" else "",
+                if (r.prerelease) "yes" else "",
+                r.url,
+            };
+            try rows.append(allocator, &row);
+        }
+        try cli.output.printTable(stdout, &headers, rows.items, json);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support releases.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execReleaseView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, tag: ?[]const u8, json: bool) !void {
+    if (provider.releases) |releases| {
+        const t = tag orelse {
+            try stderr.interface.print("error: release view requires a tag name\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const info = try releases.view(allocator, token, ctx.owner, ctx.repo, t);
+        defer {
+            allocator.free(info.tag_name);
+            allocator.free(info.name);
+            allocator.free(info.body);
+            allocator.free(info.url);
+            allocator.free(info.created_at);
+        }
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Tag", info.tag_name },
+            .{ "Name", info.name },
+            .{ "Draft", if (info.draft) "yes" else "no" },
+            .{ "Prerelease", if (info.prerelease) "yes" else "no" },
+            .{ "URL", info.url },
+            .{ "Created", info.created_at },
+        }, json);
+        if (!json and info.body.len > 0) {
+            try stdout.interface.writeAll("\n  Body:\n");
+            try stdout.interface.print("  {s}\n", .{info.body});
+        }
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support releases.\n", .{provider.name});
+    stderr.end() catch {};
+    std.process.exit(1);
+}
+
+fn execReleaseCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, tag: ?[]const u8, description: ?[]const u8, draft: bool, json: bool) !void {
+    if (provider.releases) |releases| {
+        const t = tag orelse {
+            try stderr.interface.print("error: release create requires a tag name\n", .{});
+            stderr.end() catch {};
+            std.process.exit(1);
+        };
+        const info = try releases.create(allocator, token, ctx.owner, ctx.repo, .{
+            .tag_name = t,
+            .name = description,
+            .body = description,
+            .draft = draft,
+        });
+        try cli.output.printKeyValue(stdout, &.{
+            .{ "Tag", info.tag_name },
+            .{ "Name", info.name },
+            .{ "URL", info.url },
+        }, json);
+        return;
+    }
+    try stderr.interface.print("error: {s} does not support releases.\n", .{provider.name});
     stderr.end() catch {};
     std.process.exit(1);
 }

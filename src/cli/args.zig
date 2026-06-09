@@ -22,6 +22,9 @@ pub const Command = enum {
     pr_merge,
     pr_list,
     pr_view,
+    release_list,
+    release_view,
+    release_create,
     api,
     auth_login,
     auth_logout,
@@ -184,6 +187,11 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.name = arg;
                     }
                 },
+                .release_view, .release_create => {
+                    if (result.name == null) {
+                        result.name = arg;
+                    }
+                },
                 .label_set_all => {
                     result.labels = arg;
                 },
@@ -247,6 +255,9 @@ pub fn printHelp(writer: anytype) !void {
         \\  pr merge <number>      Merge a pull/merge request
         \\  pr list                List open pull/merge requests
         \\  pr view <number>       View a pull/merge request
+        \\  release list           List releases
+        \\  release view <tag>     View a release
+        \\  release create <tag>   Create a release
         \\  api <method> <path>    Direct API call
         \\  export <resource-path>  Write resource as JSON to stdout
         \\  import <resource-path>  Create resource from JSON on stdin
