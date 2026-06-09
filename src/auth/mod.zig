@@ -11,7 +11,7 @@ const config = @import("config");
 /// Returns null if no token is found.
 pub fn getToken(allocator: std.mem.Allocator, provider: []const u8, account: ?[]const u8) !?[]const u8 {
     // 1. Environment variables (highest priority)
-    if (try env.getToken(provider)) |t| return t;
+    if (try env.getToken(allocator, provider)) |t| return t;
 
     // 2. OS keychain (requires account name)
     if (account) |acc| {
@@ -64,7 +64,9 @@ pub fn execLogin(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator,
 
     // Check env var — warn if set
     const env_var_name = env.varName(provider);
-    if (std.posix.getenv(env_var_name)) |_| {
+    const existing_env = try env.getEnvVarOwned(allocator, env_var_name);
+    defer if (existing_env) |e| allocator.free(e);
+    if (existing_env != null) {
         try stdout.interface.print("  ⚠  {s} is already set — keychain token will be ignored while it's set.\n", .{env_var_name});
     }
 
@@ -148,7 +150,10 @@ pub fn execList(stdout: anytype, allocator: std.mem.Allocator) !void {
     try stdout.interface.print("Configured accounts:\n\n", .{});
     for (cfg.accounts) |a| {
         const env_var = env.varName(a.provider);
-        const has_token = if (std.posix.getenv(env_var)) |_| " (env var active)" else "";
+        const has_token = if (try env.getEnvVarOwned(allocator, env_var)) |t| blk: {
+            allocator.free(t);
+            break :blk " (env var active)";
+        } else "";
         try stdout.interface.print("  {s:12} {s:8}{s}\n", .{ a.name, a.provider, has_token });
     }
 }
@@ -166,7 +171,8 @@ pub fn execStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, acc
     try stdout.interface.print("Auth status:\n\n", .{});
     if (found) |acc| {
         const env_var = env.varName(acc.provider);
-        const env_token = std.posix.getenv(env_var);
+        const env_token = try env.getEnvVarOwned(allocator, env_var);
+        defer if (env_token) |t| allocator.free(t);
         const keychain_token = try keychain.get(allocator, acc.provider, acc.name);
         try stdout.interface.print("  Provider:  {s}\n", .{acc.provider});
         try stdout.interface.print("  Account:   {s}\n", .{acc.name});

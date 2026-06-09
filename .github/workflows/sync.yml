@@ -56,7 +56,7 @@ jobs:
       - name: Push to sync remote (origin ahead)
         if: steps.direction.outputs.action == 'push'
         run: |
-          git push --tags sync main
+          git push --force --tags sync main
 
       - name: Create PR from sync changes (sync remote ahead)
         if: steps.direction.outputs.action == 'pr'

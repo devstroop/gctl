@@ -37,13 +37,11 @@ fn postForm(allocator: std.mem.Allocator, url: []const u8, form_body: []const u8
 /// Default GitHub OAuth client ID.
 const default_client_id = "Iv23li1CQnzR31KQ11n7";
 
-fn clientId() []const u8 {
-    return std.posix.getenv("GITHUB_CLIENT_ID") orelse default_client_id;
-}
-
 /// GitHub device flow OAuth.
 pub fn loginDeviceFlow(allocator: std.mem.Allocator) ![]const u8 {
-    const client_id = clientId();
+    const env_client_id = try @import("env.zig").getEnvVarOwned(allocator, "GITHUB_CLIENT_ID");
+    const client_id = env_client_id orelse default_client_id;
+    defer if (env_client_id != null) allocator.free(client_id);
 
     // Step 1: Request device code
     const device_code_url = "https://github.com/login/device/code";

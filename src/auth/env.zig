@@ -8,10 +8,20 @@ pub fn varName(provider: []const u8) []const u8 {
     return "TOKEN"; // generic fallback for custom / unknown providers
 }
 
+/// Cross-platform env var lookup. Returns null if not found.
+/// Caller owns the returned memory if non-null.
+pub fn getEnvVarOwned(allocator: std.mem.Allocator, name: []const u8) !?[]const u8 {
+    return std.process.getEnvVarOwned(allocator, name) catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => return null,
+        else => |e| return e,
+    };
+}
+
 /// Get a token from environment variables.
 /// Checks: GITHUB_TOKEN, GITLAB_TOKEN, GITEA_TOKEN, TOKEN (generic fallback).
-pub fn getToken(provider: []const u8) !?[]const u8 {
-    return std.posix.getenv(varName(provider));
+/// Caller owns the returned memory if non-null.
+pub fn getToken(allocator: std.mem.Allocator, provider: []const u8) !?[]const u8 {
+    return try getEnvVarOwned(allocator, varName(provider));
 }
 
 test {

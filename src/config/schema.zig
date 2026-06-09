@@ -1,5 +1,19 @@
 const std = @import("std");
 
+fn homeDir(allocator: std.mem.Allocator) !?[]const u8 {
+    if (comptime @import("builtin").target.os.tag == .windows) {
+        return std.process.getEnvVarOwned(allocator, "USERPROFILE") catch |err| switch (err) {
+            error.EnvironmentVariableNotFound => return null,
+            else => |e| return e,
+        };
+    } else {
+        return std.process.getEnvVarOwned(allocator, "HOME") catch |err| switch (err) {
+            error.EnvironmentVariableNotFound => return null,
+            else => |e| return e,
+        };
+    }
+}
+
 /// An account entry in the config file.
 pub const Account = struct {
     name: []const u8,
@@ -20,9 +34,9 @@ pub const Defaults = struct {
 /// Read config from ~/.gctl/config.json.
 /// Returns a default config if the file doesn't exist.
 pub fn read(allocator: std.mem.Allocator) !Config {
-    const home = std.posix.getenv("HOME") orelse {
-        return Config{ .accounts = &.{}, .defaults = .{} };
-    };
+    const home_buf = try homeDir(allocator);
+    const home = home_buf orelse return Config{ .accounts = &.{}, .defaults = .{} };
+    defer allocator.free(home_buf.?);
 
     const config_dir = try std.fs.path.join(allocator, &.{ home, ".gctl" });
     defer allocator.free(config_dir);
@@ -47,7 +61,9 @@ pub fn read(allocator: std.mem.Allocator) !Config {
 
 /// Write config to ~/.gctl/config.json.
 pub fn write(allocator: std.mem.Allocator, cfg: Config) !void {
-    const home = std.posix.getenv("HOME") orelse return error.NoHomeDirectory;
+    const home_buf = try homeDir(allocator);
+    const home = home_buf orelse return error.NoHomeDirectory;
+    defer allocator.free(home_buf.?);
 
     const config_dir = try std.fs.path.join(allocator, &.{ home, ".gctl" });
     defer allocator.free(config_dir);
@@ -76,6 +92,7 @@ pub fn write(allocator: std.mem.Allocator, cfg: Config) !void {
 }
 
 test "read: returns default config when no file exists" {
+    if (@import("builtin").target.os.tag == .windows) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const orig_home = std.posix.getenv("HOME");
     defer if (orig_home) |h| std.posix.setenv("HOME", h) catch {};
@@ -93,6 +110,7 @@ test "read: returns default config when no file exists" {
 }
 
 test "read: parses config file correctly" {
+    if (@import("builtin").target.os.tag == .windows) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const orig_home = std.posix.getenv("HOME");
     defer if (orig_home) |h| std.posix.setenv("HOME", h) catch {};
@@ -137,6 +155,7 @@ test "read: parses config file correctly" {
 }
 
 test "write: creates config file with correct content" {
+    if (@import("builtin").target.os.tag == .windows) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const orig_home = std.posix.getenv("HOME");
     defer if (orig_home) |h| std.posix.setenv("HOME", h) catch {};
@@ -183,6 +202,7 @@ test "write: creates config file with correct content" {
 }
 
 test "write: creates directory if it doesn't exist" {
+    if (@import("builtin").target.os.tag == .windows) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const orig_home = std.posix.getenv("HOME");
     defer if (orig_home) |h| std.posix.setenv("HOME", h) catch {};
@@ -215,6 +235,7 @@ test "write: creates directory if it doesn't exist" {
 }
 
 test "write: respects empty accounts" {
+    if (@import("builtin").target.os.tag == .windows) return error.SkipZigTest;
     const allocator = std.testing.allocator;
     const orig_home = std.posix.getenv("HOME");
     defer if (orig_home) |h| std.posix.setenv("HOME", h) catch {};

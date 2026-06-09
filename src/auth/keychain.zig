@@ -33,7 +33,7 @@ pub fn store(allocator: std.mem.Allocator, provider: []const u8, account: []cons
         const result = try child.wait();
         if (result.Exited != 0) return error.KeychainStoreFailed;
     } else {
-        @compileError("unsupported platform");
+        return error.UnsupportedPlatform;
     }
 }
 
@@ -59,7 +59,7 @@ pub fn get(allocator: std.mem.Allocator, provider: []const u8, account: []const 
         if (result.term.Exited != 0) return null;
         return std.mem.trim(u8, result.stdout, "\n\r");
     } else {
-        @compileError("unsupported platform");
+        return error.UnsupportedPlatform;
     }
 }
 
@@ -83,7 +83,7 @@ pub fn delete(allocator: std.mem.Allocator, provider: []const u8, account: []con
         defer allocator.free(result.stderr);
         if (result.term.Exited != 0) return error.KeychainDeleteFailed;
     } else {
-        @compileError("unsupported platform");
+        return error.UnsupportedPlatform;
     }
 }
 
