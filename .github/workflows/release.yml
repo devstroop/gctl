@@ -39,7 +39,7 @@ jobs:
       - name: Stage install scripts
         run: |
           cp scripts/install.sh scripts/install.ps1 .
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             gitctl-*
