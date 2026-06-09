@@ -96,6 +96,7 @@ pub const RepoVtable = struct {
 pub const IssueCreateParams = struct {
     title: []const u8,
     body: ?[]const u8 = null,
+    labels: ?[]const []const u8 = null,
 };
 
 pub const IssueVtable = struct {

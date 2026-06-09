@@ -5,6 +5,9 @@ pub const Command = enum {
     doctor,
     network,
     status,
+    @"export",
+    @"import",
+    copy,
     repo_view,
     repo_create,
     repo_delete,
@@ -37,6 +40,8 @@ pub const ParsedArgs = struct {
     labels: ?[]const u8 = null,
     title: ?[]const u8 = null,
     base: ?[]const u8 = null,
+    source: ?[]const u8 = null,
+    target: ?[]const u8 = null,
     all: bool = false,
     quick: bool = false,
 };
@@ -180,6 +185,18 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
                         result.path = arg;
                     }
                 },
+                .@"export", .@"import" => {
+                    if (result.path == null) {
+                        result.path = arg;
+                    }
+                },
+                .copy => {
+                    if (result.source == null) {
+                        result.source = arg;
+                    } else if (result.target == null) {
+                        result.target = arg;
+                    }
+                },
                 else => {},
             }
         }
@@ -212,6 +229,9 @@ pub fn printHelp(writer: anytype) !void {
         \\  pr list                List open pull/merge requests
         \\  pr view <number>       View a pull/merge request
         \\  api <method> <path>    Direct API call
+        \\  export <resource-path>  Write resource as JSON to stdout
+        \\  import <resource-path>  Create resource from JSON on stdin
+        \\  copy <source> <target>  Copy resource across remotes (export | import)
         \\
         \\Flags:
         \\  --provider, -p <name>     Override provider (github|gitlab)

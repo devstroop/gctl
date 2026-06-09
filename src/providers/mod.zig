@@ -66,6 +66,7 @@ pub fn execute(
     command: cli.Command,
     number: ?u64,
     provider_url: ?[]const u8,
+    path: ?[]const u8,
     name: ?[]const u8,
     description: ?[]const u8,
     private: bool,
@@ -74,6 +75,8 @@ pub fn execute(
     base: ?[]const u8,
     quick: bool,
     all: bool,
+    source: ?[]const u8,
+    target: ?[]const u8,
 ) !void {
     if (ctxs.len == 0) {
         try stderr.interface.print("error: no context resolved\n", .{});
@@ -81,10 +84,12 @@ pub fn execute(
         std.process.exit(1);
     }
 
+    // Network is purely local — no provider or token needed
     if (command == .network) {
         return printNetwork(stdout, ctxs, all);
     }
 
+    const t = if (token) |tok| tok else "";
     const ctx = ctxs[0];
     const provider = getProvider(ctx.provider);
     if (provider == null) {
@@ -102,7 +107,9 @@ pub fn execute(
         std.process.exit(1);
     }
 
-    const t = if (token) |tok| tok else "";
+    // Export/import — use current provider, path-based resource addressing
+    if (command == .@"export") return execExport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
+    if (command == .@"import") return execImport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
 
     switch (command) {
         .doctor => try printDoctor(stdout, allocator, ctxs, t, provider_url, quick),
@@ -120,6 +127,9 @@ pub fn execute(
         .pr_merge => try execPRMerge(allocator, stdout, stderr, p, t, ctx, number),
         .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
         .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number),
+        .@"export" => unreachable,
+        .@"import" => unreachable,
+        .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target),
         .api => try stderr.interface.print("TODO: api command\n", .{}),
         .network => unreachable,
     }
@@ -151,6 +161,213 @@ fn printNetwork(writer: anytype, ctxs: []context.ResolvedContext, verbose: bool)
     for (ctxs, 0..) |c, i| {
         const active = if (i == 0) "  ← active" else "";
         try writer.interface.print("  {d}. {s:20} {s:8} {s}/{s}{s}\n", .{ i + 1, c.remote_name, c.provider, c.owner, c.repo, active });
+    }
+}
+
+/// Parse a resource path like "issues/14" or "prs/42" into type string and optional id.
+/// Returns .type, .id_str. Caller owns id_str (allocated) if non-null.
+fn parseResourcePath(allocator: std.mem.Allocator, path: []const u8) !struct { resource_type: []const u8, id_str: ?[]const u8 } {
+    var parts = std.mem.splitScalar(u8, path, '/');
+    const resource_type = parts.next() orelse return error.InvalidArgument;
+    const id_part = parts.next();
+    return .{
+        .resource_type = resource_type,
+        .id_str = if (id_part) |id| try allocator.dupe(u8, id) else null,
+    };
+}
+
+fn execExport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8) !void {
+    const ctx = ctxs[0];
+    const resource_path = path orelse {
+        try stderr.interface.print("error: export requires a resource path (e.g. issues/14)\n", .{});
+        std.process.exit(1);
+    };
+
+    const parsed = parseResourcePath(allocator, resource_path) catch {
+        try stderr.interface.print("error: invalid resource path '{s}'\n", .{resource_path});
+        std.process.exit(1);
+    };
+    defer if (parsed.id_str) |id| allocator.free(id);
+
+    const t = parsed.resource_type;
+    if (std.mem.eql(u8, t, "issues")) {
+        if (provider.issues) |vtable| {
+            if (parsed.id_str) |id| {
+                const num = std.fmt.parseUnsigned(u64, id, 10) catch {
+                    try stderr.interface.print("error: invalid issue number '{s}'\n", .{id});
+                    std.process.exit(1);
+                };
+                const info = try vtable.view(allocator, token, ctx.owner, ctx.repo, num);
+                try std.json.Stringify.value(info, .{}, &stdout.interface);
+                try stdout.interface.writeAll("\n");
+            }
+        } else {
+            try stderr.interface.print("error: issues not supported on {s}\n", .{ctx.provider});
+            std.process.exit(1);
+        }
+    } else if (std.mem.eql(u8, t, "prs")) {
+        if (provider.prs) |vtable| {
+            if (parsed.id_str) |id| {
+                const num = std.fmt.parseUnsigned(u64, id, 10) catch {
+                    try stderr.interface.print("error: invalid PR number '{s}'\n", .{id});
+                    std.process.exit(1);
+                };
+                const info = try vtable.view(allocator, token, ctx.owner, ctx.repo, num);
+                try std.json.Stringify.value(info, .{}, &stdout.interface);
+                try stdout.interface.writeAll("\n");
+            }
+        } else {
+            try stderr.interface.print("error: pull requests not supported on {s}\n", .{ctx.provider});
+            std.process.exit(1);
+        }
+    } else {
+        try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
+        std.process.exit(1);
+    }
+}
+
+fn execImport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8) !void {
+    const ctx = ctxs[0];
+    const resource_path = path orelse {
+        try stderr.interface.print("error: import requires a resource path (e.g. issues/)\n", .{});
+        std.process.exit(1);
+    };
+
+    const parsed = parseResourcePath(allocator, resource_path) catch {
+        try stderr.interface.print("error: invalid resource path '{s}'\n", .{resource_path});
+        std.process.exit(1);
+    };
+    defer if (parsed.id_str) |id| allocator.free(id);
+
+    // Read all of stdin
+    const stdin_raw = std.fs.File.stdin();
+    const json_bytes = try stdin_raw.readToEndAlloc(allocator, 1024 * 1024);
+    defer allocator.free(json_bytes);
+
+    const t = parsed.resource_type;
+    if (std.mem.eql(u8, t, "issues")) {
+        if (provider.issues) |vtable| {
+            const info = try std.json.parseFromSlice(types.IssueInfo, allocator, json_bytes, .{});
+            defer info.deinit();
+            const params = types.IssueCreateParams{
+                .title = info.value.title,
+                .body = info.value.body,
+            };
+            const created = try vtable.create(allocator, token, ctx.owner, ctx.repo, params);
+            try stdout.interface.print("Created issue #{d}: {s}\n", .{ created.number, created.title });
+        } else {
+            try stderr.interface.print("error: issues not supported on {s}\n", .{ctx.provider});
+            std.process.exit(1);
+        }
+    } else if (std.mem.eql(u8, t, "prs")) {
+        if (provider.prs) |vtable| {
+            const info = try std.json.parseFromSlice(types.PullRequestInfo, allocator, json_bytes, .{});
+            defer info.deinit();
+            const params = types.PRCreateParams{
+                .title = info.value.title,
+                .head = info.value.source_branch,
+                .base = info.value.target_branch,
+            };
+            const created = try vtable.create(allocator, token, ctx.owner, ctx.repo, params);
+            try stdout.interface.print("Created PR #{d}: {s}\n", .{ created.number, created.title });
+        } else {
+            try stderr.interface.print("error: pull requests not supported on {s}\n", .{ctx.provider});
+            std.process.exit(1);
+        }
+    } else {
+        try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
+        std.process.exit(1);
+    }
+}
+
+fn execCopy(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8) !void {
+    const src_path = source orelse {
+        try stderr.interface.print("error: copy requires a source path (e.g. issues/14)\n", .{});
+        std.process.exit(1);
+    };
+    const tgt_remote = target orelse {
+        try stderr.interface.print("error: copy requires a target remote (e.g. upstream)\n", .{});
+        std.process.exit(1);
+    };
+
+    // Find target context
+    const tgt_ctx = blk: {
+        for (ctxs) |c| {
+            if (std.mem.eql(u8, c.remote_name, tgt_remote)) break :blk c;
+        }
+        try stderr.interface.print("error: remote '{s}' not found\n", .{tgt_remote});
+        std.process.exit(1);
+    };
+
+    const tgt_provider = getProvider(tgt_ctx.provider) orelse {
+        try stderr.interface.print("error: unknown provider '{s}'\n", .{tgt_ctx.provider});
+        std.process.exit(1);
+    };
+
+    // Parse source path
+    const parsed = parseResourcePath(allocator, src_path) catch {
+        try stderr.interface.print("error: invalid source path '{s}'\n", .{src_path});
+        std.process.exit(1);
+    };
+    defer if (parsed.id_str) |id| allocator.free(id);
+
+    const src_ctx = ctxs[0];
+    const src_provider = getProvider(src_ctx.provider) orelse {
+        try stderr.interface.print("error: unknown source provider\n", .{});
+        std.process.exit(1);
+    };
+
+    const t = parsed.resource_type;
+    if (std.mem.eql(u8, t, "issues")) {
+        if (src_provider.issues == null) {
+            try stderr.interface.print("error: issues not supported on source\n", .{});
+            std.process.exit(1);
+        }
+        if (tgt_provider.issues == null) {
+            try stderr.interface.print("error: issues not supported on target '{s}'\n", .{tgt_remote});
+            std.process.exit(1);
+        }
+        const num = std.fmt.parseUnsigned(u64, parsed.id_str orelse {
+            try stderr.interface.print("error: source path must include an issue number\n", .{});
+            std.process.exit(1);
+        }, 10) catch {
+            try stderr.interface.print("error: invalid issue number\n", .{});
+            std.process.exit(1);
+        };
+        const info = try src_provider.issues.?.view(allocator, token, src_ctx.owner, src_ctx.repo, num);
+        const params = types.IssueCreateParams{
+            .title = info.title,
+            .body = info.body,
+        };
+        const created = try tgt_provider.issues.?.create(allocator, token, tgt_ctx.owner, tgt_ctx.repo, params);
+        try stdout.interface.print("Copied issue #{d} → {s} #{d}\n", .{ num, tgt_remote, created.number });
+    } else if (std.mem.eql(u8, t, "prs")) {
+        if (src_provider.prs == null) {
+            try stderr.interface.print("error: PRs not supported on source\n", .{});
+            std.process.exit(1);
+        }
+        if (tgt_provider.prs == null) {
+            try stderr.interface.print("error: PRs not supported on target '{s}'\n", .{tgt_remote});
+            std.process.exit(1);
+        }
+        const num = std.fmt.parseUnsigned(u64, parsed.id_str orelse {
+            try stderr.interface.print("error: source path must include a PR number\n", .{});
+            std.process.exit(1);
+        }, 10) catch {
+            try stderr.interface.print("error: invalid PR number\n", .{});
+            std.process.exit(1);
+        };
+        const info = try src_provider.prs.?.view(allocator, token, src_ctx.owner, src_ctx.repo, num);
+        const params = types.PRCreateParams{
+            .title = info.title,
+            .head = info.source_branch,
+            .base = info.target_branch,
+        };
+        const created = try tgt_provider.prs.?.create(allocator, token, tgt_ctx.owner, tgt_ctx.repo, params);
+        try stdout.interface.print("Copied PR #{d} → {s} #{d}\n", .{ num, tgt_remote, created.number });
+    } else {
+        try stderr.interface.print("error: unknown resource type '{s}'\n", .{t});
+        std.process.exit(1);
     }
 }
 
