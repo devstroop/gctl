@@ -80,6 +80,7 @@ pub fn execute(
     all: bool,
     source: ?[]const u8,
     target: ?[]const u8,
+    json: bool,
 ) !void {
     if (ctxs.len == 0) {
         try stderr.interface.print("error: no context resolved\n", .{});
@@ -89,7 +90,7 @@ pub fn execute(
 
     // Network is purely local — no provider or token needed
     if (command == .network) {
-        return printNetwork(stdout, ctxs, all);
+        return printNetwork(stdout, ctxs, all, json);
     }
 
     const t = if (token) |tok| tok else "";
@@ -111,30 +112,30 @@ pub fn execute(
     }
 
     // Export/import — use current provider, path-based resource addressing
-    if (command == .@"export") return execExport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
-    if (command == .import) return execImport(stdout, stderr, allocator, ctxs, p, t, provider_url, path);
+    if (command == .@"export") return execExport(stdout, stderr, allocator, ctxs, p, t, provider_url, path, json);
+    if (command == .import) return execImport(stdout, stderr, allocator, ctxs, p, t, provider_url, path, json);
 
     switch (command) {
-        .doctor => try printDoctor(stdout, allocator, ctxs, t, provider_url, quick),
-        .status => try execPrintStatus(stdout, stderr, allocator, p, t, ctx),
-        .repo_view => try execRepoView(allocator, stdout, stderr, p, t, ctx),
-        .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private),
-        .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name),
-        .repo_archive => try execRepoArchive(allocator, stdout, stderr, p, t, ctx, name),
-        .label_set_all => try execLabelSetAll(allocator, stdout, stderr, p, t, ctx, labels),
-        .issue_create => try execIssueCreate(allocator, stdout, stderr, p, t, ctx, title),
-        .issue_close => try execIssueClose(allocator, stdout, stderr, p, t, ctx, number),
-        .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx),
-        .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number),
-        .pr_create => try execPRCreate(allocator, stdout, stderr, p, t, ctx, title, base),
-        .pr_merge => try execPRMerge(allocator, stdout, stderr, p, t, ctx, number),
-        .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx),
-        .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number),
+        .doctor => try printDoctor(stdout, allocator, ctxs, t, provider_url, quick, json),
+        .status => try execPrintStatus(stdout, stderr, allocator, p, t, ctx, json),
+        .repo_view => try execRepoView(allocator, stdout, stderr, p, t, ctx, json),
+        .repo_create => try execRepoCreate(allocator, stdout, stderr, p, t, ctx, name, description, private, json),
+        .repo_delete => try execRepoDelete(allocator, stdout, stderr, p, t, ctx, name, json),
+        .repo_archive => try execRepoArchive(allocator, stdout, stderr, p, t, ctx, name, json),
+        .label_set_all => try execLabelSetAll(allocator, stdout, stderr, p, t, ctx, labels, json),
+        .issue_create => try execIssueCreate(allocator, stdout, stderr, p, t, ctx, title, json),
+        .issue_close => try execIssueClose(allocator, stdout, stderr, p, t, ctx, number, json),
+        .issue_list => try execIssueList(allocator, stdout, stderr, p, t, ctx, json),
+        .issue_view => try execIssueView(allocator, stdout, stderr, p, t, ctx, number, json),
+        .pr_create => try execPRCreate(allocator, stdout, stderr, p, t, ctx, title, base, json),
+        .pr_merge => try execPRMerge(allocator, stdout, stderr, p, t, ctx, number, json),
+        .pr_list => try execPRList(allocator, stdout, stderr, p, t, ctx, json),
+        .pr_view => try execPRView(allocator, stdout, stderr, p, t, ctx, number, json),
         .@"export" => unreachable,
         .import => unreachable,
-        .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target),
-        .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target),
-        .api => try execApi(stdout, stderr, allocator, p, t, provider_url, method, path),
+        .copy => try execCopy(stdout, stderr, allocator, ctxs, t, provider_url, source, target, json),
+        .diff => try execDiff(stdout, stderr, allocator, ctxs, p, t, provider_url, source, target, json),
+        .api => try execApi(stdout, stderr, allocator, p, t, provider_url, method, path, json),
         .network => unreachable,
         .auth_login => unreachable,
         .auth_logout => unreachable,
@@ -143,9 +144,8 @@ pub fn execute(
     }
 }
 
-fn printNetwork(writer: anytype, ctxs: []context.ResolvedContext, verbose: bool) !void {
+fn printNetwork(writer: anytype, ctxs: []context.ResolvedContext, verbose: bool, json: bool) !void {
     if (verbose) {
-        // Verbose: raw table with all fields
         const headers = [_][]const u8{ "#", "Remote", "Provider", "Owner", "Repo", "URL" };
         var rows = try std.ArrayList([]const []const u8).initCapacity(std.heap.page_allocator, ctxs.len);
         defer rows.deinit(std.heap.page_allocator);
@@ -160,7 +160,7 @@ fn printNetwork(writer: anytype, ctxs: []context.ResolvedContext, verbose: bool)
             };
             try rows.append(std.heap.page_allocator, &row);
         }
-        try cli.output.printTable(writer, &headers, rows.items, false);
+        try cli.output.printTable(writer, &headers, rows.items, json);
         return;
     }
 
@@ -184,7 +184,7 @@ fn parseResourcePath(allocator: std.mem.Allocator, path: []const u8) !struct { r
     };
 }
 
-fn execExport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8) !void {
+fn execExport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8, _: bool) !void {
     const ctx = ctxs[0];
     const resource_path = path orelse {
         try stderr.interface.print("error: export requires a resource path (e.g. issues/14)\n", .{});
@@ -234,7 +234,7 @@ fn execExport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ct
     }
 }
 
-fn execImport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8) !void {
+fn execImport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, path: ?[]const u8, _: bool) !void {
     const ctx = ctxs[0];
     const resource_path = path orelse {
         try stderr.interface.print("error: import requires a resource path (e.g. issues/)\n", .{});
@@ -288,7 +288,7 @@ fn execImport(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ct
     }
 }
 
-fn execCopy(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8) !void {
+fn execCopy(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8, _: bool) !void {
     const src_path = source orelse {
         try stderr.interface.print("error: copy requires a source path (e.g. issues/14)\n", .{});
         std.process.exit(1);
@@ -438,7 +438,7 @@ fn diffPR(stdout: anytype, a: types.PullRequestInfo, b: types.PullRequestInfo) !
     }
 }
 
-fn execDiff(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8) !void {
+fn execDiff(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, provider: *const types.Provider, token: []const u8, _: ?[]const u8, source: ?[]const u8, target: ?[]const u8, _: bool) !void {
     const src_path = source orelse {
         try stderr.interface.print("error: diff requires a source path (e.g. issues/14)\n", .{});
         std.process.exit(1);
@@ -516,7 +516,7 @@ fn execDiff(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, ctxs
     }
 }
 
-fn execApi(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, provider_url: ?[]const u8, method: ?[]const u8, api_path: ?[]const u8) !void {
+fn execApi(stdout: anytype, stderr: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, provider_url: ?[]const u8, method: ?[]const u8, api_path: ?[]const u8, _: bool) !void {
     const m = method orelse {
         try stderr.interface.print("error: api requires an HTTP method (e.g. GET /repos/owner/repo)\n", .{});
         std.process.exit(1);
@@ -589,7 +589,7 @@ fn methodSupportsBody(m: std.http.Method) bool {
     };
 }
 
-fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
+fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, _: bool) !void {
     try stdout.interface.print("{s}/{s} — {s}\n", .{ ctx.owner, ctx.repo, ctx.provider });
 
     // Repo pulse via repos.view
@@ -629,7 +629,7 @@ fn execPrintStatus(stdout: anytype, _: anytype, allocator: std.mem.Allocator, pr
     }
 }
 
-fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, provider_url: ?[]const u8, quick: bool) !void {
+fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.ResolvedContext, token: []const u8, provider_url: ?[]const u8, quick: bool, _: bool) !void {
     const ctx = ctxs[0];
 
     try stdout.interface.print("gitctl doctor — system diagnostics\n\n", .{});
@@ -711,7 +711,7 @@ fn printDoctor(stdout: anytype, allocator: std.mem.Allocator, ctxs: []context.Re
     try stdout.interface.print("  All systems nominal\n", .{});
 }
 
-fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, description: ?[]const u8, private: bool) !void {
+fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, description: ?[]const u8, private: bool, json: bool) !void {
     if (provider.repos) |repos| {
         const repo_name = name orelse {
             try stderr.interface.print("error: repo create requires a name\n", .{});
@@ -729,7 +729,7 @@ fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype
             .{ "Full name", info.full_name },
             .{ "URL", info.url },
             .{ "Visibility", info.visibility },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support repository creation.\n", .{provider.name});
@@ -737,7 +737,7 @@ fn execRepoCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype
     std.process.exit(1);
 }
 
-fn execRepoDelete(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8) !void {
+fn execRepoDelete(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, _: bool) !void {
     if (provider.repos) |repos| {
         const repo_name = name orelse {
             try stderr.interface.print("error: repo delete requires a name\n", .{});
@@ -753,7 +753,7 @@ fn execRepoDelete(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype
     std.process.exit(1);
 }
 
-fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8) !void {
+fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, name: ?[]const u8, json: bool) !void {
     if (provider.repos) |repos| {
         const repo_name = name orelse {
             try stderr.interface.print("error: repo archive requires a name\n", .{});
@@ -765,7 +765,7 @@ fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
             .{ "Name", info.name },
             .{ "Archived", "yes" },
             .{ "URL", info.url },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support repository archiving.\n", .{provider.name});
@@ -773,7 +773,7 @@ fn execRepoArchive(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
     std.process.exit(1);
 }
 
-fn execLabelSetAll(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, labels_raw: ?[]const u8) !void {
+fn execLabelSetAll(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, labels_raw: ?[]const u8, _: bool) !void {
     if (provider.labels) |labels_vtable| {
         const raw = labels_raw orelse {
             try stderr.interface.print("error: label set_all requires a comma-separated list of labels\n", .{});
@@ -804,7 +804,7 @@ fn execLabelSetAll(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
     std.process.exit(1);
 }
 
-fn execRepoView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
+fn execRepoView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, json: bool) !void {
     if (provider.repos) |repos| {
         const info = try repos.view(allocator, token, ctx.owner, ctx.repo);
         try cli.output.printKeyValue(stdout, &.{
@@ -814,7 +814,7 @@ fn execRepoView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, 
             .{ "URL", info.url },
             .{ "Default branch", info.default_branch },
             .{ "Visibility", info.visibility },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support repository operations.\n", .{provider.name});
@@ -822,7 +822,7 @@ fn execRepoView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, 
     std.process.exit(1);
 }
 
-fn execIssueList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
+fn execIssueList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, json: bool) !void {
     if (provider.issues) |issues| {
         const list = try issues.list(allocator, token, ctx.owner, ctx.repo);
         const headers = [_][]const u8{ "#", "Title", "Author", "Labels", "State" };
@@ -838,7 +838,7 @@ fn execIssueList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype,
             };
             try rows.append(allocator, &row);
         }
-        try cli.output.printTable(stdout, &headers, rows.items, false);
+        try cli.output.printTable(stdout, &headers, rows.items, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support issues.\n", .{provider.name});
@@ -846,7 +846,7 @@ fn execIssueList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype,
     std.process.exit(1);
 }
 
-fn execIssueCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8) !void {
+fn execIssueCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8, json: bool) !void {
     if (provider.issues) |issues| {
         const issue_title = title orelse {
             try stderr.interface.print("error: issue create requires a title\n", .{});
@@ -860,7 +860,7 @@ fn execIssueCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
             .{ "Title", info.title },
             .{ "State", info.state },
             .{ "URL", info.url },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support issue operations.\n", .{provider.name});
@@ -868,7 +868,7 @@ fn execIssueCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytyp
     std.process.exit(1);
 }
 
-fn execIssueClose(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+fn execIssueClose(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, json: bool) !void {
     if (provider.issues) |issues| {
         const num = number orelse {
             try stderr.interface.print("error: issue close requires an issue number\n", .{});
@@ -881,7 +881,7 @@ fn execIssueClose(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype
             .{ "Title", info.title },
             .{ "State", info.state },
             .{ "URL", info.url },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support issue operations.\n", .{provider.name});
@@ -889,7 +889,7 @@ fn execIssueClose(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype
     std.process.exit(1);
 }
 
-fn execIssueView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+fn execIssueView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, json: bool) !void {
     if (provider.issues) |issues| {
         const num = number orelse {
             try stderr.interface.print("error: issue view requires an issue number\n", .{});
@@ -903,7 +903,7 @@ fn execIssueView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype,
             .{ "Author", info.author },
             .{ "URL", info.url },
             .{ "Created", info.created_at },
-        }, false);
+        }, json);
         try stdout.interface.print("\n{s}\n", .{info.body});
         return;
     }
@@ -912,7 +912,7 @@ fn execIssueView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype,
     std.process.exit(1);
 }
 
-fn execPRList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext) !void {
+fn execPRList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, json: bool) !void {
     if (provider.prs) |prs| {
         const list = try prs.list(allocator, token, ctx.owner, ctx.repo);
         const headers = [_][]const u8{ "#", "Title", "Author", "Branch", "State" };
@@ -930,7 +930,7 @@ fn execPRList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, pr
             };
             try rows.append(allocator, &row);
         }
-        try cli.output.printTable(stdout, &headers, rows.items, false);
+        try cli.output.printTable(stdout, &headers, rows.items, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
@@ -938,7 +938,7 @@ fn execPRList(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, pr
     std.process.exit(1);
 }
 
-fn execPRView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+fn execPRView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, json: bool) !void {
     if (provider.prs) |prs| {
         const num = number orelse {
             try stderr.interface.print("error: PR view requires a PR number\n", .{});
@@ -956,7 +956,7 @@ fn execPRView(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, pr
             .{ "Target", info.target_branch },
             .{ "URL", info.url },
             .{ "Created", info.created_at },
-        }, false);
+        }, json);
         _ = draft;
         return;
     }
@@ -979,7 +979,7 @@ fn getCurrentBranch(allocator: std.mem.Allocator) ![]const u8 {
     return std.mem.trim(u8, output, " \n\r");
 }
 
-fn execPRCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8, base: ?[]const u8) !void {
+fn execPRCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, title: ?[]const u8, base: ?[]const u8, json: bool) !void {
     if (provider.prs) |prs| {
         const pr_title = title orelse {
             try stderr.interface.print("error: pr create requires a title\n", .{});
@@ -1008,7 +1008,7 @@ fn execPRCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, 
             .{ "URL", info.url },
             .{ "From", info.source_branch },
             .{ "To", info.target_branch },
-        }, false);
+        }, json);
         return;
     }
     try stderr.interface.print("error: {s} does not support pull requests.\n", .{provider.name});
@@ -1016,7 +1016,7 @@ fn execPRCreate(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, 
     std.process.exit(1);
 }
 
-fn execPRMerge(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64) !void {
+fn execPRMerge(allocator: std.mem.Allocator, stdout: anytype, stderr: anytype, provider: *const types.Provider, token: []const u8, ctx: context.ResolvedContext, number: ?u64, _: bool) !void {
     if (provider.prs) |prs| {
         const num = number orelse {
             try stderr.interface.print("error: pr merge requires a PR number\n", .{});

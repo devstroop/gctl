@@ -80,11 +80,10 @@ pub fn main() !void {
 
     // Network is purely local — no token needed
     if (result.command == .network) {
-        try providers.execute(allocator, &stdout, &stderr, ctxs, null, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target);
+        try providers.execute(allocator, &stdout, &stderr, ctxs, null, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target, result.json);
         return;
     }
 
-    // Use first context for token resolution
     const first_ctx = ctxs[0];
     const token = blk: {
         if (result.command == .doctor) {
@@ -99,7 +98,7 @@ pub fn main() !void {
         };
     };
 
-    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target);
+    try providers.execute(allocator, &stdout, &stderr, ctxs, token, result.command, result.number, result.provider_url, result.path, result.method, result.name, result.description, result.private, result.labels, result.title, result.base, result.quick, result.all, result.source, result.target, result.json);
 }
 
 fn upperProvider(name: []const u8) []const u8 {

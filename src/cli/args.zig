@@ -49,6 +49,7 @@ pub const ParsedArgs = struct {
     target: ?[]const u8 = null,
     all: bool = false,
     quick: bool = false,
+    json: bool = false,
 };
 
 /// Parse CLI arguments and return the parsed command and flags.
@@ -142,6 +143,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Parsed
             result.all = true;
         } else if (std.mem.eql(u8, arg, "--quick")) {
             result.quick = true;
+        } else if (std.mem.eql(u8, arg, "--json") or std.mem.eql(u8, arg, "-j")) {
+            result.json = true;
         } else if (std.mem.eql(u8, arg, "--private")) {
             result.private = true;
         } else if (std.mem.eql(u8, arg, "--no-private")) {
@@ -255,6 +258,7 @@ pub fn printHelp(writer: anytype) !void {
         \\  --description <text>      Repo description (repo create)
         \\  --private                 Make repo private (repo create)
         \\  --base <branch>           Target branch (pr create, default: main)
+        \\  --json, -j                Output as JSON
         \\  --help, -h                Show this help
         \\
         \\Environment:
